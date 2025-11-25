@@ -6,41 +6,41 @@
     <title>SCORM Course</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f0f0f0; }
+        body { font-family: Arial, sans-serif; background: #1a1a1a; }
         #container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
         #scorm-frame { flex: 1; border: none; width: 100%; background: white; }
         #debug { background: #2c3e50; color: white; padding: 10px; font-size: 11px; max-height: 120px; overflow-y: auto; }
-        .log { padding: 2px 0; border-bottom: 1px solid #34495e; }
+        .log { padding: 2px 0; border-bottom: 1px solid #34495e; font-family: monospace; }
         .success { color: #2ecc71; }
         .error { color: #e74c3c; }
         .info { color: #3498db; }
+        .warning { color: #f39c12; }
     </style>
 </head>
 <body>
     <div id="container">
-        <iframe id="scorm-frame"></iframe>
-        <div id="debug"><div class="log info">Inizializzazione SCORM API...</div></div>
+        <iframe id="scorm-frame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+        <div id="debug"><div class="log info">🚀 Inizializzazione SCORM Proxy...</div></div>
     </div>
 
 <script>
-// Configurazione
 const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
 const USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
 const COURSE_ID = 'branding-foundations';
 
-// Logger
 function log(msg, type) {
     const debug = document.getElementById('debug');
     const entry = document.createElement('div');
     entry.className = 'log ' + (type || 'info');
-    entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    const icons = { success: '✓', error: '✗', warning: '⚠', info: '→' };
+    entry.textContent = (icons[type] || '•') + ' ' + msg;
     debug.appendChild(entry);
     debug.scrollTop = debug.scrollHeight;
     console.log('[SCORM] ' + msg);
 }
 
-// SCORM API 1.2
+// SCORM API 1.2 con logging dettagliato
 function ScormAPI() {
     this.data = {
         'cmi.core.student_id': USER_ID,
@@ -52,69 +52,76 @@ function ScormAPI() {
         'cmi.core.score.min': '0',
         'cmi.core.total_time': '0000:00:00.00',
         'cmi.core.session_time': '0000:00:00.00',
-        'cmi.suspend_data': ''
+        'cmi.suspend_data': '',
+        'cmi.core.lesson_mode': 'normal',
+        'cmi.core.exit': '',
+        'cmi.core.entry': 'ab-initio'
     };
     this.initialized = false;
     this.terminated = false;
     this.errorCode = '0';
     this.startTime = null;
+    log('API creata', 'success');
 }
 
-ScormAPI.prototype.LMSInitialize = function() {
-    if (this.initialized) return 'false';
+ScormAPI.prototype.LMSInitialize = function(param) {
+    log('→ LMSInitialize chiamato', 'info');
+    if (this.initialized) {
+        log('Già inizializzato!', 'warning');
+        return 'false';
+    }
     this.initialized = true;
     this.startTime = new Date();
-    log('✓ LMSInitialize', 'success');
+    log('✓ Sessione iniziata', 'success');
     this.sendData('initialize', {});
     return 'true';
 };
 
-ScormAPI.prototype.LMSFinish = function() {
+ScormAPI.prototype.LMSFinish = function(param) {
+    log('→ LMSFinish chiamato', 'info');
     if (!this.initialized || this.terminated) return 'false';
     this.terminated = true;
-    log('✓ LMSFinish', 'success');
+    log('✓ Sessione terminata', 'success');
     this.sendData('terminate', this.data);
     return 'true';
 };
 
 ScormAPI.prototype.LMSGetValue = function(key) {
-    if (!this.initialized) return '';
+    if (!this.initialized) {
+        log('GetValue fallito: non inizializzato', 'error');
+        return '';
+    }
     const val = this.data[key] || '';
-    log('GetValue: ' + key + ' = ' + val, 'info');
+    log('GetValue: ' + key + ' = "' + val + '"', 'info');
     return val;
 };
 
 ScormAPI.prototype.LMSSetValue = function(key, value) {
-    if (!this.initialized) return 'false';
+    if (!this.initialized) {
+        log('SetValue fallito: non inizializzato', 'error');
+        return 'false';
+    }
     this.data[key] = value;
     const critical = ['cmi.core.lesson_status', 'cmi.core.score.raw'];
     if (critical.includes(key)) {
-        log('SetValue: ' + key + ' = ' + value + ' [TRACKED]', 'success');
+        log('SetValue: ' + key + ' = "' + value + '" [TRACKED]', 'success');
         this.sendData('setValue', { element: key, value: value });
     } else {
-        log('SetValue: ' + key + ' = ' + value, 'info');
+        log('SetValue: ' + key + ' = "' + value + '"', 'info');
     }
     return 'true';
 };
 
-ScormAPI.prototype.LMSCommit = function() {
+ScormAPI.prototype.LMSCommit = function(param) {
     if (!this.initialized) return 'false';
     log('✓ LMSCommit', 'success');
     this.sendData('commit', this.data);
     return 'true';
 };
 
-ScormAPI.prototype.LMSGetLastError = function() {
-    return this.errorCode;
-};
-
-ScormAPI.prototype.LMSGetErrorString = function(code) {
-    return 'Error ' + code;
-};
-
-ScormAPI.prototype.LMSGetDiagnostic = function(code) {
-    return 'Diagnostic for error ' + code;
-};
+ScormAPI.prototype.LMSGetLastError = function() { return this.errorCode; };
+ScormAPI.prototype.LMSGetErrorString = function(code) { return 'Error ' + code; };
+ScormAPI.prototype.LMSGetDiagnostic = function(code) { return 'Diagnostic ' + code; };
 
 ScormAPI.prototype.sendData = function(action, data) {
     fetch(APPS_SCRIPT_URL, {
@@ -129,55 +136,67 @@ ScormAPI.prototype.sendData = function(action, data) {
             data: data
         })
     }).then(() => {
-        log('→ Data sent: ' + action, 'success');
+        log('Dati inviati: ' + action, 'success');
     }).catch(e => {
-        log('✗ Send error: ' + e.message, 'error');
+        log('Errore invio: ' + e.message, 'error');
     });
 };
 
-// Crea API globale
+// Crea API GLOBALE prima di caricare l'iframe
 window.API = new ScormAPI();
-window.API_1484_11 = window.API; // Per SCORM 2004
+window.API_1484_11 = window.API;
 
-log('✓ SCORM API creata', 'success');
+log('API resa globale', 'success');
 
-// Carica contenuto
+// Carica iframe con injection script
 const frame = document.getElementById('scorm-frame');
-frame.onload = function() {
-    log('✓ Contenuto caricato', 'success');
-    // Prova a iniettare API nell'iframe in modo aggressivo
-    try {
-        if (frame.contentWindow) {
-            frame.contentWindow.API = window.API;
-            frame.contentWindow.API_1484_11 = window.API;
-            
-            // Inietta anche nel documento dell'iframe
-            if (frame.contentDocument) {
-                frame.contentDocument.API = window.API;
+
+// Quando l'iframe si carica, inietta l'API
+frame.addEventListener('load', function() {
+    log('Iframe caricato', 'success');
+    
+    setTimeout(function() {
+        try {
+            // Prova multiple strategie di injection
+            if (frame.contentWindow) {
+                frame.contentWindow.API = window.API;
+                frame.contentWindow.API_1484_11 = window.API;
+                log('API iniettata in contentWindow', 'success');
             }
             
-            // Forza la ricerca dell'API
-            setTimeout(function() {
-                if (frame.contentWindow.API) {
-                    log('✓ API disponibile nell\'iframe', 'success');
-                } else {
-                    log('⚠ API non trovata nell\'iframe', 'error');
-                }
-            }, 500);
+            // Prova anche via postMessage
+            frame.contentWindow.postMessage({
+                type: 'SCORM_API_READY',
+                api: 'available'
+            }, '*');
+            
+        } catch(e) {
+            log('Injection fallita: ' + e.message, 'error');
         }
-    } catch(e) {
-        log('⚠ CORS: ' + e.message, 'error');
+    }, 100);
+});
+
+// Listener per messaggi dall'iframe
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'SCORM_API_REQUEST') {
+        log('Iframe richiede API', 'warning');
+        event.source.postMessage({
+            type: 'SCORM_API_RESPONSE',
+            available: true
+        }, '*');
     }
-};
+});
+
+// Carica il contenuto
 frame.src = SCORM_URL;
-log('Caricamento: ' + SCORM_URL, 'info');
+log('Caricamento SCORM da: ' + SCORM_URL, 'info');
 
 // Cleanup
-window.onbeforeunload = function() {
-    if (window.API.initialized && !window.API.terminated) {
-        window.API.LMSFinish();
+window.addEventListener('beforeunload', function() {
+    if (window.API && window.API.initialized && !window.API.terminated) {
+        window.API.LMSFinish('');
     }
-};
+});
 </script>
 </body>
 </html>
