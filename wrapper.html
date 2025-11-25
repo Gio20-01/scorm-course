@@ -145,11 +145,25 @@ log('✓ SCORM API creata', 'success');
 const frame = document.getElementById('scorm-frame');
 frame.onload = function() {
     log('✓ Contenuto caricato', 'success');
-    // Prova a iniettare API nell'iframe
+    // Prova a iniettare API nell'iframe in modo aggressivo
     try {
         if (frame.contentWindow) {
             frame.contentWindow.API = window.API;
-            log('✓ API disponibile nell\'iframe', 'success');
+            frame.contentWindow.API_1484_11 = window.API;
+            
+            // Inietta anche nel documento dell'iframe
+            if (frame.contentDocument) {
+                frame.contentDocument.API = window.API;
+            }
+            
+            // Forza la ricerca dell'API
+            setTimeout(function() {
+                if (frame.contentWindow.API) {
+                    log('✓ API disponibile nell\'iframe', 'success');
+                } else {
+                    log('⚠ API non trovata nell\'iframe', 'error');
+                }
+            }, 500);
         }
     } catch(e) {
         log('⚠ CORS: ' + e.message, 'error');
