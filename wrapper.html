@@ -298,13 +298,28 @@
         // INIZIALIZZAZIONE
         // ============================================
         
+        // Crea l'API SCORM globalmente
         window.API = new ScormAPI();
+        
+        // Rendi l'API disponibile anche per l'iframe
+        window.API_1484_11 = window.API; // SCORM 2004
         
         document.addEventListener('DOMContentLoaded', function() {
             const frame = document.getElementById('scorm-frame');
             
             frame.addEventListener('load', function() {
                 window.API.log('✓ Contenuto SCORM caricato!', 'success');
+                
+                // Assicurati che l'API sia accessibile dall'iframe
+                try {
+                    if (frame.contentWindow) {
+                        frame.contentWindow.API = window.API;
+                        frame.contentWindow.API_1484_11 = window.API;
+                        window.API.log('✓ API resa disponibile all\'iframe', 'success');
+                    }
+                } catch(e) {
+                    window.API.log('⚠ Impossibile iniettare API nell\'iframe: ' + e.message, 'error');
+                }
             });
             
             frame.addEventListener('error', function() {
