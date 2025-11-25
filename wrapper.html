@@ -3,338 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCORM Course Viewer</title>
+    <title>SCORM Course</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background: #f0f0f0;
-        }
-        
-        #scorm-container {
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        #scorm-frame {
-            flex: 1;
-            border: none;
-            width: 100%;
-            background: white;
-            min-height: 600px;
-        }
-        
-        #debug-panel {
-            background: #2c3e50;
-            color: white;
-            padding: 10px;
-            font-size: 12px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        
-        .debug-entry {
-            padding: 3px 0;
-            border-bottom: 1px solid #34495e;
-        }
-        
-        .debug-entry.success { color: #2ecc71; }
-        .debug-entry.error { color: #e74c3c; }
-        .debug-entry.info { color: #3498db; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f0f0; }
+        #container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+        #scorm-frame { flex: 1; border: none; width: 100%; background: white; }
+        #debug { background: #2c3e50; color: white; padding: 10px; font-size: 11px; max-height: 120px; overflow-y: auto; }
+        .log { padding: 2px 0; border-bottom: 1px solid #34495e; }
+        .success { color: #2ecc71; }
+        .error { color: #e74c3c; }
+        .info { color: #3498db; }
     </style>
 </head>
 <body>
-    <div id="scorm-container">
-        <iframe id="scorm-frame" src=""></iframe>
-        <div id="debug-panel">
-            <div class="debug-entry info">SCORM API Ready - In attesa di inizializzazione...</div>
-        </div>
+    <div id="container">
+        <iframe id="scorm-frame"></iframe>
+        <div id="debug"><div class="log info">Inizializzazione SCORM API...</div></div>
     </div>
 
-    <script>
-        // ============================================
-        // CONFIGURAZIONE
-        // ============================================
-        
-        // URL relativo del contenuto SCORM (stesso dominio)
-        const SCORM_CONTENT_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
-        
-        // URL del tuo Apps Script Web App
-        const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
-        
-        // ID utente (puoi renderlo dinamico in seguito)
-        const USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
-        
-        // ID del corso
-        const COURSE_ID = 'branding-vs-performance-foundations';
+<script>
+// Configurazione
+const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
+const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
+const USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
+const COURSE_ID = 'branding-foundations';
 
-        // ============================================
-        // SCORM API 1.2 IMPLEMENTATION
-        // ============================================
-        
-        class ScormAPI {
-            constructor() {
-                this.data = {
-                    'cmi.core.student_id': USER_ID,
-                    'cmi.core.student_name': 'Student',
-                    'cmi.core.lesson_location': '',
-                    'cmi.core.credit': 'credit',
-                    'cmi.core.lesson_status': 'not attempted',
-                    'cmi.core.entry': 'ab-initio',
-                    'cmi.core.score.raw': '',
-                    'cmi.core.score.max': '100',
-                    'cmi.core.score.min': '0',
-                    'cmi.core.total_time': '0000:00:00.00',
-                    'cmi.core.lesson_mode': 'normal',
-                    'cmi.core.exit': '',
-                    'cmi.core.session_time': '0000:00:00.00',
-                    'cmi.suspend_data': '',
-                    'cmi.launch_data': '',
-                    'cmi.comments': '',
-                    'cmi.comments_from_lms': ''
-                };
-                
-                this.initialized = false;
-                this.terminated = false;
-                this.errorCode = '0';
-                this.startTime = null;
-                
-                this.log('SCORM API creata', 'info');
-            }
-            
-            LMSInitialize(param) {
-                if (this.initialized) {
-                    this.errorCode = '101';
-                    this.log('Errore: già inizializzato', 'error');
-                    return 'false';
-                }
-                
-                if (this.terminated) {
-                    this.errorCode = '101';
-                    this.log('Errore: già terminato', 'error');
-                    return 'false';
-                }
-                
-                this.initialized = true;
-                this.startTime = new Date();
-                this.errorCode = '0';
-                
-                this.log('✓ LMSInitialize - Sessione iniziata', 'success');
-                this.sendToAppsScript('initialize', {});
-                
-                return 'true';
-            }
-            
-            LMSFinish(param) {
-                if (!this.initialized) {
-                    this.errorCode = '301';
-                    this.log('Errore: non inizializzato', 'error');
-                    return 'false';
-                }
-                
-                if (this.terminated) {
-                    this.errorCode = '101';
-                    this.log('Errore: già terminato', 'error');
-                    return 'false';
-                }
-                
-                if (this.startTime) {
-                    const sessionTime = this.calculateSessionTime();
-                    this.data['cmi.core.session_time'] = sessionTime;
-                }
-                
-                this.terminated = true;
-                this.errorCode = '0';
-                
-                this.log('✓ LMSFinish - Sessione terminata', 'success');
-                this.sendToAppsScript('terminate', this.data);
-                
-                return 'true';
-            }
-            
-            LMSGetValue(element) {
-                if (!this.initialized) {
-                    this.errorCode = '301';
-                    return '';
-                }
-                
-                if (this.data.hasOwnProperty(element)) {
-                    this.errorCode = '0';
-                    const value = this.data[element];
-                    this.log(`GetValue: ${element} = ${value}`, 'info');
-                    return value;
-                }
-                
-                this.errorCode = '401';
-                this.log(`GetValue: ${element} non trovato`, 'error');
-                return '';
-            }
-            
-            LMSSetValue(element, value) {
-                if (!this.initialized) {
-                    this.errorCode = '301';
-                    this.log('Errore: non inizializzato', 'error');
-                    return 'false';
-                }
-                
-                if (this.terminated) {
-                    this.errorCode = '101';
-                    return 'false';
-                }
-                
-                const criticalElements = [
-                    'cmi.core.lesson_status',
-                    'cmi.core.score.raw',
-                    'cmi.core.lesson_location',
-                    'cmi.suspend_data'
-                ];
-                
-                this.data[element] = value;
-                this.errorCode = '0';
-                
-                const isCritical = criticalElements.includes(element);
-                this.log(`SetValue: ${element} = ${value}${isCritical ? ' [CRITICO]' : ''}`, 
-                         isCritical ? 'success' : 'info');
-                
-                if (isCritical) {
-                    this.sendToAppsScript('setValue', {
-                        element: element,
-                        value: value,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-                
-                return 'true';
-            }
-            
-            LMSCommit(param) {
-                if (!this.initialized) {
-                    this.errorCode = '301';
-                    return 'false';
-                }
-                
-                this.errorCode = '0';
-                this.log('✓ LMSCommit - Dati salvati', 'success');
-                this.sendToAppsScript('commit', this.data);
-                
-                return 'true';
-            }
-            
-            LMSGetLastError() {
-                return this.errorCode;
-            }
-            
-            LMSGetErrorString(errorCode) {
-                const errors = {
-                    '0': 'No error',
-                    '101': 'General exception',
-                    '201': 'Invalid argument error',
-                    '301': 'Not initialized',
-                    '401': 'Not implemented error'
-                };
-                
-                return errors[errorCode] || 'Unknown error';
-            }
-            
-            LMSGetDiagnostic(errorCode) {
-                return `Diagnostic for error ${errorCode}: ${this.LMSGetErrorString(errorCode)}`;
-            }
-            
-            calculateSessionTime() {
-                if (!this.startTime) return '0000:00:00.00';
-                
-                const now = new Date();
-                const diff = now - this.startTime;
-                
-                const hours = Math.floor(diff / 3600000);
-                const minutes = Math.floor((diff % 3600000) / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
-                const centiseconds = Math.floor((diff % 1000) / 10);
-                
-                return `${String(hours).padStart(4, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
-            }
-            
-            sendToAppsScript(action, data) {
-                const payload = {
-                    action: action,
-                    userId: USER_ID,
-                    courseId: COURSE_ID,
-                    timestamp: new Date().toISOString(),
-                    data: data
-                };
-                
-                fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(() => {
-                    this.log(`→ Dati inviati ad Apps Script (${action})`, 'success');
-                })
-                .catch(error => {
-                    this.log(`✗ Errore invio dati: ${error.message}`, 'error');
-                });
-            }
-            
-            log(message, type = 'info') {
-                const debugPanel = document.getElementById('debug-panel');
-                const entry = document.createElement('div');
-                entry.className = `debug-entry ${type}`;
-                entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-                debugPanel.appendChild(entry);
-                debugPanel.scrollTop = debugPanel.scrollHeight;
-                
-                console.log(`[SCORM API] ${message}`);
-            }
+// Logger
+function log(msg, type) {
+    const debug = document.getElementById('debug');
+    const entry = document.createElement('div');
+    entry.className = 'log ' + (type || 'info');
+    entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    debug.appendChild(entry);
+    debug.scrollTop = debug.scrollHeight;
+    console.log('[SCORM] ' + msg);
+}
+
+// SCORM API 1.2
+function ScormAPI() {
+    this.data = {
+        'cmi.core.student_id': USER_ID,
+        'cmi.core.student_name': 'Student',
+        'cmi.core.lesson_location': '',
+        'cmi.core.lesson_status': 'not attempted',
+        'cmi.core.score.raw': '',
+        'cmi.core.score.max': '100',
+        'cmi.core.score.min': '0',
+        'cmi.core.total_time': '0000:00:00.00',
+        'cmi.core.session_time': '0000:00:00.00',
+        'cmi.suspend_data': ''
+    };
+    this.initialized = false;
+    this.terminated = false;
+    this.errorCode = '0';
+    this.startTime = null;
+}
+
+ScormAPI.prototype.LMSInitialize = function() {
+    if (this.initialized) return 'false';
+    this.initialized = true;
+    this.startTime = new Date();
+    log('✓ LMSInitialize', 'success');
+    this.sendData('initialize', {});
+    return 'true';
+};
+
+ScormAPI.prototype.LMSFinish = function() {
+    if (!this.initialized || this.terminated) return 'false';
+    this.terminated = true;
+    log('✓ LMSFinish', 'success');
+    this.sendData('terminate', this.data);
+    return 'true';
+};
+
+ScormAPI.prototype.LMSGetValue = function(key) {
+    if (!this.initialized) return '';
+    const val = this.data[key] || '';
+    log('GetValue: ' + key + ' = ' + val, 'info');
+    return val;
+};
+
+ScormAPI.prototype.LMSSetValue = function(key, value) {
+    if (!this.initialized) return 'false';
+    this.data[key] = value;
+    const critical = ['cmi.core.lesson_status', 'cmi.core.score.raw'];
+    if (critical.includes(key)) {
+        log('SetValue: ' + key + ' = ' + value + ' [TRACKED]', 'success');
+        this.sendData('setValue', { element: key, value: value });
+    } else {
+        log('SetValue: ' + key + ' = ' + value, 'info');
+    }
+    return 'true';
+};
+
+ScormAPI.prototype.LMSCommit = function() {
+    if (!this.initialized) return 'false';
+    log('✓ LMSCommit', 'success');
+    this.sendData('commit', this.data);
+    return 'true';
+};
+
+ScormAPI.prototype.LMSGetLastError = function() {
+    return this.errorCode;
+};
+
+ScormAPI.prototype.LMSGetErrorString = function(code) {
+    return 'Error ' + code;
+};
+
+ScormAPI.prototype.LMSGetDiagnostic = function(code) {
+    return 'Diagnostic for error ' + code;
+};
+
+ScormAPI.prototype.sendData = function(action, data) {
+    fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action: action,
+            userId: USER_ID,
+            courseId: COURSE_ID,
+            timestamp: new Date().toISOString(),
+            data: data
+        })
+    }).then(() => {
+        log('→ Data sent: ' + action, 'success');
+    }).catch(e => {
+        log('✗ Send error: ' + e.message, 'error');
+    });
+};
+
+// Crea API globale
+window.API = new ScormAPI();
+window.API_1484_11 = window.API; // Per SCORM 2004
+
+log('✓ SCORM API creata', 'success');
+
+// Carica contenuto
+const frame = document.getElementById('scorm-frame');
+frame.onload = function() {
+    log('✓ Contenuto caricato', 'success');
+    // Prova a iniettare API nell'iframe
+    try {
+        if (frame.contentWindow) {
+            frame.contentWindow.API = window.API;
+            log('✓ API disponibile nell\'iframe', 'success');
         }
-        
-        // ============================================
-        // INIZIALIZZAZIONE
-        // ============================================
-        
-        // Crea l'API SCORM globalmente
-        window.API = new ScormAPI();
-        
-        // Rendi l'API disponibile anche per l'iframe
-        window.API_1484_11 = window.API; // SCORM 2004
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            const frame = document.getElementById('scorm-frame');
-            
-            frame.addEventListener('load', function() {
-                window.API.log('✓ Contenuto SCORM caricato!', 'success');
-                
-                // Assicurati che l'API sia accessibile dall'iframe
-                try {
-                    if (frame.contentWindow) {
-                        frame.contentWindow.API = window.API;
-                        frame.contentWindow.API_1484_11 = window.API;
-                        window.API.log('✓ API resa disponibile all\'iframe', 'success');
-                    }
-                } catch(e) {
-                    window.API.log('⚠ Impossibile iniettare API nell\'iframe: ' + e.message, 'error');
-                }
-            });
-            
-            frame.addEventListener('error', function() {
-                window.API.log('✗ Errore nel caricamento del contenuto SCORM', 'error');
-            });
-            
-            frame.src = SCORM_CONTENT_URL;
-            window.API.log('Caricamento contenuto SCORM...', 'info');
-        });
-        
-        window.addEventListener('beforeunload', function() {
-            if (window.API.initialized && !window.API.terminated) {
-                window.API.LMSFinish('');
-            }
-        });
-    </script>
+    } catch(e) {
+        log('⚠ CORS: ' + e.message, 'error');
+    }
+};
+frame.src = SCORM_URL;
+log('Caricamento: ' + SCORM_URL, 'info');
+
+// Cleanup
+window.onbeforeunload = function() {
+    if (window.API.initialized && !window.API.terminated) {
+        window.API.LMSFinish();
+    }
+};
+</script>
 </body>
 </html>
