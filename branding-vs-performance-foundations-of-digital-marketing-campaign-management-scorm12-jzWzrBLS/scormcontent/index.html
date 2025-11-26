@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="en" class="">
   <head>
+    <script>
+// Forza il caricamento dell'API dal parent
+(function() {
+    try {
+        // Cerca l'API nella finestra parent
+        if (window.parent && window.parent.API) {
+            window.API = window.parent.API;
+            console.log('[SCORM FIX] API trovata nel parent!');
+        } else if (window.top && window.top.API) {
+            window.API = window.top.API;
+            console.log('[SCORM FIX] API trovata nel top!');
+        } else {
+            console.log('[SCORM FIX] API non trovata, ma continuo...');
+        }
+    } catch(e) {
+        console.error('[SCORM FIX] Errore:', e);
+    }
+})();
+</script>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8">
