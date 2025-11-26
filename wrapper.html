@@ -1,170 +1,179 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCORM Course</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #1a1a1a; }
-        #container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
-        #scorm-frame { flex: 1; border: none; width: 100%; background: white; }
-        #debug { background: #2c3e50; color: white; padding: 10px; font-size: 11px; max-height: 120px; overflow-y: auto; }
-        .log { padding: 2px 0; border-bottom: 1px solid #34495e; font-family: monospace; }
-        .success { color: #2ecc71; }
-        .error { color: #e74c3c; }
-        .info { color: #3498db; }
-        .warning { color: #f39c12; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SCORM Course</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #1a1a1a; }
+    #container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+    #scorm-frame { flex: 1; border: none; width: 100%; background: white; }
+    #debug { background: #2c3e50; color: white; padding: 10px; font-size: 11px; max-height: 120px; overflow-y: auto; }
+    .log { padding: 2px 0; border-bottom: 1px solid #34495e; font-family: monospace; }
+    .success { color: #2ecc71; }
+    .error { color: #e74c3c; }
+    .info { color: #3498db; }
+    .warning { color: #f39c12; }
+  </style>
 </head>
 <body>
-    <div id="container">
-        <iframe id="scorm-frame" allow="same-origin scripts forms"></iframe>
-        <div id="debug"><div class="log info">🚀 Inizializzazione SCORM Proxy...</div></div>
-    </div>
+<div id="container">
+  <iframe id="scorm-frame" allow="same-origin scripts forms"></iframe>
+  <div id="debug"><div class="log info">🚀 Inizializzazione SCORM Proxy...</div></div>
+</div>
 
 <script>
+// =====================
+// CONFIG
+// =====================
 const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
 const COURSE_ID = 'branding-foundations';
 
-// ---- USER_ID stabile sul browser ----
+// =====================
+// LOGGING
+// =====================
+function log(msg, type) {
+  const debug = document.getElementById('debug');
+  if (!debug) {
+    console.log('[SCORM]', msg);
+    return;
+  }
+  const entry = document.createElement('div');
+  entry.className = 'log ' + (type || 'info');
+  const icons = { success: '✓', error: '✗', warning: '⚠', info: '→' };
+  entry.textContent = (icons[type] || '•') + ' ' + msg;
+  debug.appendChild(entry);
+  debug.scrollTop = debug.scrollHeight;
+  console.log('[SCORM]', msg);
+}
+
+// =====================
+// USER ID stabile (browser)
+// =====================
 const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
 let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
-
 if (!USER_ID) {
   USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
   localStorage.setItem(USER_STORAGE_KEY, USER_ID);
 }
+log('USER_ID: ' + USER_ID, 'info');
 
-
-function log(msg, type) {
-    const debug = document.getElementById('debug');
-    const entry = document.createElement('div');
-    entry.className = 'log ' + (type || 'info');
-    const icons = { success: '✓', error: '✗', warning: '⚠', info: '→' };
-    entry.textContent = (icons[type] || '•') + ' ' + msg;
-    debug.appendChild(entry);
-    debug.scrollTop = debug.scrollHeight;
-    console.log('[SCORM] ' + msg);
-}
-
-// SCORM API 1.2 con logging dettagliato
+// =====================
+// SCORM API 1.2 (nostra)
+// =====================
 function ScormAPI() {
-    this.storageKey = 'scorm_state_' + COURSE_ID + '_' + USER_ID;
+  this.storageKey = 'scorm_state_' + COURSE_ID + '_' + USER_ID;
 
-    const defaultData = {
-        'cmi.core.student_id': USER_ID,
-        'cmi.core.student_name': 'Student',
-        'cmi.core.lesson_location': '',
-        'cmi.core.lesson_status': 'not attempted',
-        'cmi.core.score.raw': '',
-        'cmi.core.score.max': '100',
-        'cmi.core.score.min': '0',
-        'cmi.core.total_time': '0000:00:00.00',
-        'cmi.core.session_time': '0000:00:00.00',
-        'cmi.suspend_data': '',
-        'cmi.core.lesson_mode': 'normal',
-        'cmi.core.exit': '',
-        'cmi.core.entry': 'ab-initio'
-    };
+  const defaultData = {
+    'cmi.core.student_id': USER_ID,
+    'cmi.core.student_name': 'Student',
+    'cmi.core.lesson_location': '',
+    'cmi.core.lesson_status': 'not attempted',
+    'cmi.core.score.raw': '',
+    'cmi.core.score.max': '100',
+    'cmi.core.score.min': '0',
+    'cmi.core.total_time': '0000:00:00.00',
+    'cmi.core.session_time': '0000:00:00.00',
+    'cmi.suspend_data': '',
+    'cmi.core.lesson_mode': 'normal',
+    'cmi.core.exit': '',
+    'cmi.core.entry': 'ab-initio'
+  };
 
-    // Prova a caricare stato salvato
-    let saved = null;
-    try {
-        const raw = localStorage.getItem(this.storageKey);
-        if (raw) {
-            saved = JSON.parse(raw);
-            log('Stato SCORM recuperato da localStorage', 'success');
-        }
-    } catch(e) {
-        log('Errore lettura stato salvato: ' + e.message, 'warning');
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(this.storageKey);
+    if (raw) {
+      saved = JSON.parse(raw);
+      log('Stato SCORM recuperato da localStorage', 'success');
     }
+  } catch (e) {
+    log('Errore lettura stato salvato: ' + e.message, 'warning');
+  }
 
-    this.data = saved ? Object.assign({}, defaultData, saved) : defaultData;
+  this.data = saved ? Object.assign({}, defaultData, saved) : defaultData;
 
-    this.initialized = false;
-    this.terminated = false;
-    this.errorCode = '0';
-    this.startTime = null;
-    log('API creata', 'success');
+  this.initialized = false;
+  this.terminated = false;
+  this.errorCode = '0';
+  this.startTime = null;
+  log('API creata', 'success');
 }
 
-    ScormAPI.prototype.saveState = function() {
-    try {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.data));
-        log('Stato SCORM salvato in localStorage', 'info');
-    } catch(e) {
-        log('Errore salvataggio stato: ' + e.message, 'warning');
-    }
+ScormAPI.prototype.saveState = function() {
+  try {
+    localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+    log('Stato SCORM salvato in localStorage', 'info');
+  } catch (e) {
+    log('Errore salvataggio stato: ' + e.message, 'warning');
+  }
 };
 
-
 ScormAPI.prototype.LMSInitialize = function(param) {
-    log('→ LMSInitialize chiamato', 'info');
-    if (this.initialized) {
-        log('Già inizializzato!', 'warning');
-        return 'false';
-    }
-    this.initialized = true;
-    this.startTime = new Date();
-    log('✓ Sessione iniziata', 'success');
-    this.sendData('initialize', {});
-    return 'true';
+  log('→ LMSInitialize chiamato', 'info');
+  if (this.initialized) {
+    log('Già inizializzato!', 'warning');
+    return 'false';
+  }
+  this.initialized = true;
+  this.startTime = new Date();
+  log('✓ Sessione iniziata', 'success');
+  this.sendData('initialize', {});
+  return 'true';
 };
 
 ScormAPI.prototype.LMSFinish = function(param) {
-    log('→ LMSFinish chiamato', 'info');
-    if (!this.initialized || this.terminated) return 'false';
-    this.terminated = true;
-    this.saveState();              // <-- ultimo salvataggio
-    log('✓ Sessione terminata', 'success');
-    this.sendData('terminate', this.data);
-    return 'true';
+  log('→ LMSFinish chiamato', 'info');
+  if (!this.initialized || this.terminated) return 'false';
+  this.terminated = true;
+  this.saveState();
+  log('✓ Sessione terminata', 'success');
+  this.sendData('terminate', this.data);
+  return 'true';
 };
 
-
 ScormAPI.prototype.LMSGetValue = function(key) {
-    if (!this.initialized) {
-        log('GetValue fallito: non inizializzato', 'error');
-        return '';
-    }
-    const val = this.data[key] || '';
-    log('GetValue: ' + key + ' = "' + val + '"', 'info');
-    return val;
+  if (!this.initialized) {
+    log('GetValue fallito: non inizializzato', 'error');
+    return '';
+  }
+  const val = this.data[key] || '';
+  log('GetValue: ' + key + ' = "' + val + '"', 'info');
+  return val;
 };
 
 ScormAPI.prototype.LMSSetValue = function(key, value) {
-    if (!this.initialized) {
-        log('SetValue fallito: non inizializzato', 'error');
-        return 'false';
-    }
-    this.data[key] = value;
+  if (!this.initialized) {
+    log('SetValue fallito: non inizializzato', 'error');
+    return 'false';
+  }
+  this.data[key] = value;
+  this.saveState();
 
-    // Salva sempre lo stato locale
-    this.saveState();
+  const critical = [
+    'cmi.core.lesson_status',
+    'cmi.core.score.raw',
+    'cmi.core.lesson_location',
+    'cmi.suspend_data'
+  ];
 
-    const critical = [
-        'cmi.core.lesson_status',
-        'cmi.core.score.raw',
-        'cmi.core.lesson_location',
-        'cmi.suspend_data'
-    ];
-    if (critical.includes(key)) {
-        log('SetValue: ' + key + ' = "' + value + '" [TRACKED]', 'success');
-        this.sendData('setValue', { element: key, value: value });
-    } else {
-        log('SetValue: ' + key + ' = "' + value + '"', 'info');
-    }
-    return 'true';
+  if (critical.includes(key)) {
+    log('SetValue: ' + key + ' = "' + value + '" [TRACKED]', 'success');
+    this.sendData('setValue', { element: key, value: value });
+  } else {
+    log('SetValue: ' + key + ' = "' + value + '"', 'info');
+  }
+  return 'true';
 };
 
 ScormAPI.prototype.LMSCommit = function(param) {
-    if (!this.initialized) return 'false';
-    log('✓ LMSCommit', 'success');
-    this.saveState();              // <-- salvi anche in locale
-    this.sendData('commit', this.data);
-    return 'true';
+  if (!this.initialized) return 'false';
+  log('✓ LMSCommit', 'success');
+  this.saveState();
+  this.sendData('commit', this.data);
+  return 'true';
 };
 
 ScormAPI.prototype.LMSGetLastError = function() { return this.errorCode; };
@@ -172,72 +181,218 @@ ScormAPI.prototype.LMSGetErrorString = function(code) { return 'Error ' + code; 
 ScormAPI.prototype.LMSGetDiagnostic = function(code) { return 'Diagnostic ' + code; };
 
 ScormAPI.prototype.sendData = function(action, data) {
-    fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            action: action,
-            userId: USER_ID,
-            courseId: COURSE_ID,
-            timestamp: new Date().toISOString(),
-            data: data
-        })
-    }).then(() => {
-        log('Dati inviati: ' + action, 'success');
-    }).catch(e => {
-        log('Errore invio: ' + e.message, 'error');
-    });
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: action,
+      userId: USER_ID,       // verrà sovrascritto da Session.getActiveUser() nel backend
+      courseId: COURSE_ID,
+      timestamp: new Date().toISOString(),
+      data: data
+    })
+  }).then(() => {
+    log('Dati inviati: ' + action, 'success');
+  }).catch(e => {
+    log('Errore invio: ' + e.message, 'error');
+  });
 };
 
-// Crea API GLOBALE IMMEDIATAMENTE
+// =====================
+// ESPONI API GLOBALE
+// =====================
 window.API = new ScormAPI();
 window.API_1484_11 = window.API;
 log('API resa globale', 'success');
 
-// Carica iframe con injection PRECOCE
-const frame = document.getElementById('scorm-frame');
+// =====================
+// ADAPTER PER LMSProxy DI RISE
+// (funzioni che il corso chiama su window.parent)
+// =====================
 
-// CRITICAL: Inietta l'API PRIMA che l'iframe carichi il contenuto
-frame.addEventListener('load', function() {
-    log('Iframe caricato', 'success');
-    
-    // Injection immediata
-    injectAPI();
-    
-    // Retry multipli per sicurezza
-    setTimeout(injectAPI, 50);
-    setTimeout(injectAPI, 200);
-    setTimeout(injectAPI, 500);
-});
+// CHUNK grezzo usato da Rise per progress
+const CHUNK_KEY = 'rise_chunk_' + COURSE_ID + '_' + USER_ID;
+let lastChunk = localStorage.getItem(CHUNK_KEY) || '';
 
-function injectAPI() {
-    try {
-        if (frame.contentWindow) {
-            frame.contentWindow.API = window.API;
-            frame.contentWindow.API_1484_11 = window.API;
-            
-            // Forza anche findAPI
-            frame.contentWindow.findAPI = function() {
-                return window.API;
-            };
-            
-            log('API iniettata/aggiornata', 'success');
-        }
-    } catch(e) {
-        log('Injection: ' + e.message, 'error');
-    }
+function GetDataChunk() {
+  const v = window.API && window.API.initialized
+    ? window.API.LMSGetValue('cmi.suspend_data')
+    : lastChunk;
+  log('GetDataChunk → ' + (v ? 'valore presente' : 'vuoto'), 'info');
+  return v || '';
 }
 
-// Carica il contenuto
+function SetDataChunk(chunk) {
+  lastChunk = chunk || '';
+  localStorage.setItem(CHUNK_KEY, lastChunk);
+  log('SetDataChunk (len=' + lastChunk.length + ')', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.suspend_data', lastChunk);
+  }
+}
+
+function SetScore(score, max, min) {
+  log('SetScore → ' + score + '/' + max, 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.score.raw', score);
+  }
+}
+
+function SetReachedEnd() {
+  log('SetReachedEnd', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'completed');
+  }
+}
+
+function SetPassed() {
+  log('SetPassed', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'passed');
+  }
+}
+
+function SetFailed() {
+  log('SetFailed', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'failed');
+  }
+}
+
+function ResetStatus() {
+  log('ResetStatus', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'not attempted');
+  }
+}
+
+function GetStatus() {
+  const s = window.API && window.API.initialized
+    ? window.API.LMSGetValue('cmi.core.lesson_status')
+    : 'not attempted';
+  log('GetStatus → ' + s, 'info');
+  return s;
+}
+
+function SetBookmark(url, title) {
+  log('SetBookmark → ' + url, 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_location', url || '');
+  }
+}
+
+function CommitData() {
+  log('CommitData chiamato dal corso', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSCommit('');
+  }
+}
+
+function Finish() {
+  log('Finish chiamato dal corso', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSFinish('');
+  }
+}
+
+function ConcedeControl() {
+  log('ConcedeControl (export mode, nessuna azione)', 'info');
+}
+
+function GetStudentID() {
+  log('GetStudentID → ' + USER_ID, 'info');
+  return USER_ID;
+}
+
+function SetLanguagePreference(locale) {
+  log('SetLanguagePreference → ' + locale, 'info');
+}
+
+function WriteToDebug(msg) {
+  log('LMSProxy debug: ' + msg, 'info');
+}
+
+// Le funzioni per le interazioni quiz possono essere mostly no-op
+function CreateResponseIdentifier() {
+  return {}; // Rise non usa davvero il contenuto in export
+}
+
+function MatchingResponse() {
+  return function() {};
+}
+
+function RecordMultipleChoiceInteraction() {
+  log('RecordMultipleChoiceInteraction', 'info');
+}
+
+function RecordMatchingInteraction() {
+  log('RecordMatchingInteraction', 'info');
+}
+
+function RecordFillInInteraction() {
+  log('RecordFillInInteraction', 'info');
+}
+
+// Esponi tutto su window (usato da LMSProxy)
+window.GetDataChunk = GetDataChunk;
+window.SetDataChunk = SetDataChunk;
+window.SetScore = SetScore;
+window.SetReachedEnd = SetReachedEnd;
+window.SetPassed = SetPassed;
+window.SetFailed = SetFailed;
+window.ResetStatus = ResetStatus;
+window.GetStatus = GetStatus;
+window.SetBookmark = SetBookmark;
+window.CommitData = CommitData;
+window.Finish = Finish;
+window.ConcedeControl = ConcedeControl;
+window.GetStudentID = GetStudentID;
+window.SetLanguagePreference = SetLanguagePreference;
+window.WriteToDebug = WriteToDebug;
+window.CreateResponseIdentifier = CreateResponseIdentifier;
+window.MatchingResponse = MatchingResponse;
+window.RecordMultipleChoiceInteraction = RecordMultipleChoiceInteraction;
+window.RecordMatchingInteraction = RecordMatchingInteraction;
+window.RecordFillInInteraction = RecordFillInInteraction;
+
+// =====================
+// IFRAME + INJECTION API (per sicurezza)
+// =====================
+const frame = document.getElementById('scorm-frame');
+
+function injectAPI() {
+  try {
+    if (frame.contentWindow) {
+      frame.contentWindow.API = window.API;
+      frame.contentWindow.API_1484_11 = window.API;
+      frame.contentWindow.findAPI = function() {
+        return window.API;
+      };
+      log('API iniettata nell\'iframe', 'success');
+    }
+  } catch (e) {
+    log('Injection error: ' + e.message, 'error');
+  }
+}
+
+frame.addEventListener('load', function() {
+  log('Iframe caricato', 'success');
+  injectAPI();
+  setTimeout(injectAPI, 50);
+  setTimeout(injectAPI, 200);
+  setTimeout(injectAPI, 500);
+});
+
+// Carica il corso
 frame.src = SCORM_URL;
 log('Caricamento SCORM da: ' + SCORM_URL, 'info');
 
-// Cleanup
+// Cleanup alla chiusura pagina
 window.addEventListener('beforeunload', function() {
-    if (window.API && window.API.initialized && !window.API.terminated) {
-        window.API.LMSFinish('');
-    }
+  if (window.API && window.API.initialized && !window.API.terminated) {
+    window.API.LMSFinish('');
+  }
 });
 </script>
 </body>
