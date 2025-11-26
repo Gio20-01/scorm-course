@@ -24,47 +24,14 @@
 </div>
 
 <script>
-// =====================
-// CONFIG
-// =====================
-const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
+<script>
+
+  // ===================== CONFIG =====================
+const SCORM_URL      = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
-const COURSE_ID = 'branding-foundations';
+const COURSE_ID      = 'branding-foundations';
 
-// USER_ID stabile sul browser
-const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
-let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
-if (!USER_ID) {
-  USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
-  localStorage.setItem(USER_STORAGE_KEY, USER_ID);
-}
-log('USER_ID: ' + USER_ID, 'info');
-
-  function sendPixel(action, extra) {
-  extra = extra || {};
-  const payload = {
-    action: action,
-    userId: USER_ID,
-    courseId: COURSE_ID,
-    timestamp: new Date().toISOString(),
-    lesson: extra.lesson || '',
-    status: extra.status || '',
-    score: extra.score != null ? String(extra.score) : ''
-  };
-
-  // Log per debug (quello che già stai vedendo)
-  log('[SCORM PIXEL] → ' + JSON.stringify(payload), 'info');
-
-  // Costruisco la query ?a=...&b=...
-  const params = new URLSearchParams(payload);
-  const img = new Image();
-  img.src = APPS_SCRIPT_URL + '?' + params.toString();
-  // Non serve altro: l'immagine parte in background e Apps Script registra la riga
-}
-
-// =====================
-// LOGGING
-// =====================
+// ===================== LOGGING =====================
 function log(msg, type) {
   const debug = document.getElementById('debug');
   if (!debug) {
@@ -79,6 +46,42 @@ function log(msg, type) {
   debug.scrollTop = debug.scrollHeight;
   console.log('[SCORM]', msg);
 }
+
+// ===================== USER_ID stabile (browser) =====================
+const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
+let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
+if (!USER_ID) {
+  USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem(USER_STORAGE_KEY, USER_ID);
+}
+log('USER_ID: ' + USER_ID, 'info');
+
+// ===================== PIXEL =====================
+function sendPixel(action, extra) {
+  extra = extra || {};
+  const payload = {
+    action:   action,
+    userId:   USER_ID,
+    courseId: COURSE_ID,
+    timestamp: new Date().toISOString(),
+    lesson:   extra.lesson || '',
+    status:   extra.status || '',
+    score:    extra.score != null ? String(extra.score) : ''
+  };
+
+  log('[SCORM PIXEL] → ' + JSON.stringify(payload), 'info');
+
+  const params = new URLSearchParams(payload);
+  const img = new Image();
+  img.src = APPS_SCRIPT_URL + '?' + params.toString();
+}
+
+// (opzionale ma comodo: alias usato nel resto del codice)
+function trackEvent(action, extra) {
+  sendPixel(action, extra);
+}
+</script>
+
 
 
   // --- Ping di test disattivato ---
