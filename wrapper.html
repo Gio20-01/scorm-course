@@ -151,7 +151,9 @@ ScormAPI.prototype.LMSInitialize = function(param) {
   this.initialized = true;
   this.startTime = new Date();
   log('✓ Sessione iniziata', 'success');
-  this.sendData('initialize', {});
+
+  trackEvent('initialize');    // <<< qui
+
   return 'true';
 };
 
@@ -311,7 +313,39 @@ function SetBookmark(url, title) {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_location', url || '');
   }
+  // tracking: spostamento di lezione
+  trackEvent('bookmark', { lesson: url || '' });
 }
+
+function SetReachedEnd() {
+  log('SetReachedEnd', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'completed');
+  }
+  // tracking: corso completato
+  trackEvent('completed', { status: 'completed' });
+}
+
+function SetPassed() {
+  log('SetPassed', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'passed');
+  }
+  // tracking: corso passato
+  const score = window.API ? window.API.LMSGetValue('cmi.core.score.raw') : '';
+  trackEvent('status', { status: 'passed', score: score });
+}
+
+function SetFailed() {
+  log('SetFailed', 'info');
+  if (window.API && window.API.initialized) {
+    window.API.LMSSetValue('cmi.core.lesson_status', 'failed');
+  }
+  // tracking: corso fallito
+  const score = window.API ? window.API.LMSGetValue('cmi.core.score.raw') : '';
+  trackEvent('status', { status: 'failed', score: score });
+}
+
 
 function CommitData() {
   log('CommitData chiamato dal corso', 'info');
