@@ -24,12 +24,10 @@
 </div>
 
 <script>
-<script>
-
-  // ===================== CONFIG =====================
-const SCORM_URL      = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
+// ===================== CONFIG =====================
+const SCORM_URL       = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
-const COURSE_ID      = 'branding-foundations';
+const COURSE_ID       = 'branding-foundations';
 
 // ===================== LOGGING =====================
 function log(msg, type) {
@@ -56,7 +54,7 @@ if (!USER_ID) {
 }
 log('USER_ID: ' + USER_ID, 'info');
 
-// ===================== PIXEL =====================
+// ===================== PIXEL (GET su Apps Script) =====================
 function sendPixel(action, extra) {
   extra = extra || {};
   const payload = {
@@ -76,27 +74,12 @@ function sendPixel(action, extra) {
   img.src = APPS_SCRIPT_URL + '?' + params.toString();
 }
 
-// (opzionale ma comodo: alias usato nel resto del codice)
+// alias comodo
 function trackEvent(action, extra) {
   sendPixel(action, extra);
 }
-</script>
 
-
-
-  // --- Ping di test disattivato ---
-  //fetch(APPS_SCRIPT_URL)
-  //.then(r => r.json())
-  //.then(data => {
-  //  log('✓ Backend raggiungibile: ' + data.message, 'success');
-  // })
-  // .catch(e => {
-  //  log('✗ Backend NON raggiungibile: ' + e.message, 'error');
-  // });
-
-// =====================
-// SCORM API 1.2 (nostra)
-// =====================
+// ===================== SCORM API 1.2 (nostra) =====================
 function ScormAPI() {
   this.storageKey = 'scorm_state_' + COURSE_ID + '_' + USER_ID;
 
@@ -155,8 +138,8 @@ ScormAPI.prototype.LMSInitialize = function(param) {
   this.startTime = new Date();
   log('✓ Sessione iniziata', 'success');
 
-  trackEvent('initialize');    // <<< qui
-
+  // logghiamo l'avvio corso
+  trackEvent('initialize');
   return 'true';
 };
 
@@ -166,7 +149,6 @@ ScormAPI.prototype.LMSFinish = function(param) {
   this.terminated = true;
   this.saveState();
   log('✓ Sessione terminata', 'success');
-  this.sendData('terminate', this.data);
   return 'true';
 };
 
@@ -197,7 +179,6 @@ ScormAPI.prototype.LMSSetValue = function(key, value) {
 
   if (critical.includes(key)) {
     log('SetValue: ' + key + ' = "' + value + '" [TRACKED]', 'success');
-    this.sendData('setValue', { element: key, value: value });
   } else {
     log('SetValue: ' + key + ' = "' + value + '"', 'info');
   }
@@ -208,51 +189,19 @@ ScormAPI.prototype.LMSCommit = function(param) {
   if (!this.initialized) return 'false';
   log('✓ LMSCommit', 'success');
   this.saveState();
-  this.sendData('commit', this.data);
   return 'true';
 };
 
-ScormAPI.prototype.LMSGetLastError = function() { return this.errorCode; };
-ScormAPI.prototype.LMSGetErrorString = function(code) { return 'Error ' + code; };
-ScormAPI.prototype.LMSGetDiagnostic = function(code) { return 'Diagnostic ' + code; };
+ScormAPI.prototype.LMSGetLastError    = function() { return this.errorCode; };
+ScormAPI.prototype.LMSGetErrorString  = function(code) { return 'Error ' + code; };
+ScormAPI.prototype.LMSGetDiagnostic   = function(code) { return 'Diagnostic ' + code; };
 
-ScormAPI.prototype.sendData = function(action, data) {
-  const payload = {
-    action: action,
-    userId: USER_ID,
-    courseId: COURSE_ID,
-    timestamp: new Date().toISOString(),
-    data: data || {}
-  };
-
-  // Solo logging locale, per vedere cosa sta succedendo
-  console.log('[SCORM PIXEL] →', payload);
-  log('→ Pixel ' + action, 'info');
-
-  // Tracking pixel: niente fetch, niente CORS
-  const img = new Image();
-  img.src = APPS_SCRIPT_URL + '?payload=' +
-    encodeURIComponent(JSON.stringify(payload));
-};
-
-// =====================
-
-// ESPONI API GLOBALE
+// ===================== ESPONI API GLOBALE =====================
 window.API = new ScormAPI();
 window.API_1484_11 = window.API;
 log('API resa globale', 'success');
 
-// 🔴 AGGIUNGI QUESTO:
-window.API.LMSInitialize('');
-log('LMSInitialize chiamato dal wrapper', 'info');
-
-
-// =====================
-// ADAPTER PER LMSProxy DI RISE
-// (funzioni che il corso chiama su window.parent)
-// =====================
-
-// CHUNK grezzo usato da Rise per progress
+// ===================== ADAPTER PER LMSProxy DI RISE =====================
 const CHUNK_KEY = 'rise_chunk_' + COURSE_ID + '_' + USER_ID;
 let lastChunk = localStorage.getItem(CHUNK_KEY) || '';
 
@@ -286,6 +235,7 @@ function SetReachedEnd() {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'completed');
   }
+  sendPixel('completed', { status: 'completed' });
 }
 
 function SetPassed() {
@@ -293,6 +243,7 @@ function SetPassed() {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'passed');
   }
+  sendPixel('passed', { status: 'passed' });
 }
 
 function SetFailed() {
@@ -300,6 +251,7 @@ function SetFailed() {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'failed');
   }
+  sendPixel('failed', { status: 'failed' });
 }
 
 function ResetStatus() {
@@ -322,39 +274,8 @@ function SetBookmark(url, title) {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_location', url || '');
   }
-
-  // 👇 aggiungi questo
-  sendPixel('bookmark', {
-    lesson: url || ''
-  });
+  sendPixel('bookmark', { lesson: url || '' });
 }
-
-
-function SetReachedEnd() {
-  log('SetReachedEnd', 'info');
-  if (window.API && window.API.initialized) {
-    window.API.LMSSetValue('cmi.core.lesson_status', 'completed');
-  }
-  sendPixel('completed', { status: 'completed' });
-}
-
-function SetPassed() {
-  log('SetPassed', 'info');
-  if (window.API && window.API.initialized) {
-    window.API.LMSSetValue('cmi.core.lesson_status', 'passed');
-  }
-  sendPixel('passed', { status: 'passed' });
-}
-
-function SetFailed() {
-  log('SetFailed', 'info');
-  if (window.API && window.API.initialized) {
-    window.API.LMSSetValue('cmi.core.lesson_status', 'failed');
-  }
-  sendPixel('failed', { status: 'failed' });
-}
-
-
 
 function CommitData() {
   log('CommitData chiamato dal corso', 'info');
@@ -387,62 +308,43 @@ function WriteToDebug(msg) {
   log('LMSProxy debug: ' + msg, 'info');
 }
 
-// Le funzioni per le interazioni quiz possono essere mostly no-op
-function CreateResponseIdentifier() {
-  return {}; // Rise non usa davvero il contenuto in export
-}
+function CreateResponseIdentifier() { return {}; }
+function MatchingResponse() { return function() {}; }
+function RecordMultipleChoiceInteraction() { log('RecordMultipleChoiceInteraction', 'info'); }
+function RecordMatchingInteraction()      { log('RecordMatchingInteraction', 'info'); }
+function RecordFillInInteraction()        { log('RecordFillInInteraction', 'info'); }
 
-function MatchingResponse() {
-  return function() {};
-}
+// Esponi per LMSProxy
+window.GetDataChunk                     = GetDataChunk;
+window.SetDataChunk                     = SetDataChunk;
+window.SetScore                         = SetScore;
+window.SetReachedEnd                    = SetReachedEnd;
+window.SetPassed                        = SetPassed;
+window.SetFailed                        = SetFailed;
+window.ResetStatus                      = ResetStatus;
+window.GetStatus                        = GetStatus;
+window.SetBookmark                      = SetBookmark;
+window.CommitData                       = CommitData;
+window.Finish                           = Finish;
+window.ConcedeControl                   = ConcedeControl;
+window.GetStudentID                     = GetStudentID;
+window.SetLanguagePreference            = SetLanguagePreference;
+window.WriteToDebug                     = WriteToDebug;
+window.CreateResponseIdentifier         = CreateResponseIdentifier;
+window.MatchingResponse                 = MatchingResponse;
+window.RecordMultipleChoiceInteraction  = RecordMultipleChoiceInteraction;
+window.RecordMatchingInteraction        = RecordMatchingInteraction;
+window.RecordFillInInteraction          = RecordFillInInteraction;
 
-function RecordMultipleChoiceInteraction() {
-  log('RecordMultipleChoiceInteraction', 'info');
-}
-
-function RecordMatchingInteraction() {
-  log('RecordMatchingInteraction', 'info');
-}
-
-function RecordFillInInteraction() {
-  log('RecordFillInInteraction', 'info');
-}
-
-// Esponi tutto su window (usato da LMSProxy)
-window.GetDataChunk = GetDataChunk;
-window.SetDataChunk = SetDataChunk;
-window.SetScore = SetScore;
-window.SetReachedEnd = SetReachedEnd;
-window.SetPassed = SetPassed;
-window.SetFailed = SetFailed;
-window.ResetStatus = ResetStatus;
-window.GetStatus = GetStatus;
-window.SetBookmark = SetBookmark;
-window.CommitData = CommitData;
-window.Finish = Finish;
-window.ConcedeControl = ConcedeControl;
-window.GetStudentID = GetStudentID;
-window.SetLanguagePreference = SetLanguagePreference;
-window.WriteToDebug = WriteToDebug;
-window.CreateResponseIdentifier = CreateResponseIdentifier;
-window.MatchingResponse = MatchingResponse;
-window.RecordMultipleChoiceInteraction = RecordMultipleChoiceInteraction;
-window.RecordMatchingInteraction = RecordMatchingInteraction;
-window.RecordFillInInteraction = RecordFillInInteraction;
-
-// =====================
-// IFRAME + INJECTION API (per sicurezza)
-// =====================
+// ===================== IFRAME + INJECTION API =====================
 const frame = document.getElementById('scorm-frame');
 
 function injectAPI() {
   try {
     if (frame.contentWindow) {
-      frame.contentWindow.API = window.API;
+      frame.contentWindow.API         = window.API;
       frame.contentWindow.API_1484_11 = window.API;
-      frame.contentWindow.findAPI = function() {
-        return window.API;
-      };
+      frame.contentWindow.findAPI     = function() { return window.API; };
       log('API iniettata nell\'iframe', 'success');
     }
   } catch (e) {
