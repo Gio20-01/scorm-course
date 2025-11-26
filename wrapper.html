@@ -26,8 +26,17 @@
 <script>
 const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
-const USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
 const COURSE_ID = 'branding-foundations';
+
+// ---- USER_ID stabile sul browser ----
+const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
+let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
+
+if (!USER_ID) {
+  USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem(USER_STORAGE_KEY, USER_ID);
+}
+
 
 function log(msg, type) {
     const debug = document.getElementById('debug');
@@ -42,7 +51,9 @@ function log(msg, type) {
 
 // SCORM API 1.2 con logging dettagliato
 function ScormAPI() {
-    this.data = {
+    this.storageKey = 'scorm_state_' + COURSE_ID + '_' + USER_ID;
+
+    const defaultData = {
         'cmi.core.student_id': USER_ID,
         'cmi.core.student_name': 'Student',
         'cmi.core.lesson_location': '',
@@ -57,12 +68,37 @@ function ScormAPI() {
         'cmi.core.exit': '',
         'cmi.core.entry': 'ab-initio'
     };
+
+    // Prova a caricare stato salvato
+    let saved = null;
+    try {
+        const raw = localStorage.getItem(this.storageKey);
+        if (raw) {
+            saved = JSON.parse(raw);
+            log('Stato SCORM recuperato da localStorage', 'success');
+        }
+    } catch(e) {
+        log('Errore lettura stato salvato: ' + e.message, 'warning');
+    }
+
+    this.data = saved ? Object.assign({}, defaultData, saved) : defaultData;
+
     this.initialized = false;
     this.terminated = false;
     this.errorCode = '0';
     this.startTime = null;
     log('API creata', 'success');
 }
+
+    ScormAPI.prototype.saveState = function() {
+    try {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+        log('Stato SCORM salvato in localStorage', 'info');
+    } catch(e) {
+        log('Errore salvataggio stato: ' + e.message, 'warning');
+    }
+};
+
 
 ScormAPI.prototype.LMSInitialize = function(param) {
     log('→ LMSInitialize chiamato', 'info');
@@ -81,10 +117,12 @@ ScormAPI.prototype.LMSFinish = function(param) {
     log('→ LMSFinish chiamato', 'info');
     if (!this.initialized || this.terminated) return 'false';
     this.terminated = true;
+    this.saveState();              // <-- ultimo salvataggio
     log('✓ Sessione terminata', 'success');
     this.sendData('terminate', this.data);
     return 'true';
 };
+
 
 ScormAPI.prototype.LMSGetValue = function(key) {
     if (!this.initialized) {
@@ -102,7 +140,16 @@ ScormAPI.prototype.LMSSetValue = function(key, value) {
         return 'false';
     }
     this.data[key] = value;
-    const critical = ['cmi.core.lesson_status', 'cmi.core.score.raw'];
+
+    // Salva sempre lo stato locale
+    this.saveState();
+
+    const critical = [
+        'cmi.core.lesson_status',
+        'cmi.core.score.raw',
+        'cmi.core.lesson_location',
+        'cmi.suspend_data'
+    ];
     if (critical.includes(key)) {
         log('SetValue: ' + key + ' = "' + value + '" [TRACKED]', 'success');
         this.sendData('setValue', { element: key, value: value });
@@ -115,6 +162,7 @@ ScormAPI.prototype.LMSSetValue = function(key, value) {
 ScormAPI.prototype.LMSCommit = function(param) {
     if (!this.initialized) return 'false';
     log('✓ LMSCommit', 'success');
+    this.saveState();              // <-- salvi anche in locale
     this.sendData('commit', this.data);
     return 'true';
 };
