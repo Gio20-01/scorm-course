@@ -190,10 +190,6 @@ ScormAPI.prototype.LMSGetErrorString = function(code) { return 'Error ' + code; 
 ScormAPI.prototype.LMSGetDiagnostic = function(code) { return 'Diagnostic ' + code; };
 
 ScormAPI.prototype.sendData = function(action, data) {
-  // Log dettagliato
-  console.log('[SCORM SEND] Action:', action, 'Data:', data);
-  log('Invio a backend: ' + action, 'info');
-  
   const payload = {
     action: action,
     userId: USER_ID,
@@ -202,26 +198,31 @@ ScormAPI.prototype.sendData = function(action, data) {
     data: data
   };
   
-  console.log('[SCORM SEND] Payload completo:', JSON.stringify(payload, null, 2));
+  console.log('[SCORM SEND] →', action, payload);
+  log('→ Invio: ' + action, 'info');
   
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
+    // RIMUOVI mode: 'no-cors' !!!
     headers: { 
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
   })
   .then(response => {
-    console.log('[SCORM SEND] Response status:', response.status);
+    console.log('[SCORM SEND] Status:', response.status);
+    if (!response.ok) {
+      throw new Error('HTTP ' + response.status);
+    }
     return response.text();
   })
   .then(text => {
-    console.log('[SCORM SEND] Response body:', text);
-    log('✓ Dati inviati: ' + action, 'success');
+    console.log('[SCORM SEND] ✓ Response:', text);
+    log('✓ Salvato: ' + action, 'success');
   })
-  .catch(e => {
-    console.error('[SCORM SEND] Errore:', e);
-    log('✗ Errore invio: ' + e.message, 'error');
+  .catch(error => {
+    console.error('[SCORM SEND] ✗ Error:', error);
+    log('✗ Errore: ' + error.message, 'error');
   });
 };
 
