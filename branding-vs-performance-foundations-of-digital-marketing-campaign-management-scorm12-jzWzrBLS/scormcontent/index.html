@@ -2,21 +2,48 @@
 <html lang="en" class="">
   <head>
     <script>
-// Forza il caricamento dell'API dal parent
+// Forza il caricamento dell'API dal parent - VERSIONE MIGLIORATA
 (function() {
-    try {
-        // Cerca l'API nella finestra parent
-        if (window.parent && window.parent.API) {
-            window.API = window.parent.API;
-            console.log('[SCORM FIX] API trovata nel parent!');
-        } else if (window.top && window.top.API) {
-            window.API = window.top.API;
-            console.log('[SCORM FIX] API trovata nel top!');
-        } else {
-            console.log('[SCORM FIX] API non trovata, ma continuo...');
+    var apiFound = false;
+    
+    // Funzione per cercare l'API
+    function findAPI(win) {
+        var attempts = 0;
+        while (win && attempts < 10) {
+            try {
+                if (win.API) {
+                    return win.API;
+                }
+                if (win.parent && win.parent !== win) {
+                    win = win.parent;
+                } else {
+                    break;
+                }
+            } catch(e) {
+                break;
+            }
+            attempts++;
         }
-    } catch(e) {
-        console.error('[SCORM FIX] Errore:', e);
+        return null;
+    }
+    
+    // Cerca l'API
+    var api = findAPI(window);
+    if (api) {
+        window.API = api;
+        console.log('[SCORM FIX] ✓ API trovata e iniettata!');
+        apiFound = true;
+    } else {
+        console.warn('[SCORM FIX] ⚠ API non trovata, attendo...');
+        
+        // Riprova dopo un breve delay
+        setTimeout(function() {
+            api = findAPI(window);
+            if (api) {
+                window.API = api;
+                console.log('[SCORM FIX] ✓ API trovata al secondo tentativo!');
+            }
+        }, 500);
     }
 })();
 </script>
