@@ -27,6 +27,8 @@
 // CONFIG
 const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
+  // NUOVA URL SOLO PER IDENTITY (web-app B)
+const IDENTITY_URL   = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbxNjYn1IhcfiI4N2UgrG-tWnhLV4kCamEuV67AtElXSlpc-vl8jt6eegWimCPQt3ebFUQ/exec';
 const COURSE_ID = 'branding-foundations';
 
 // LOGGING
@@ -43,6 +45,15 @@ function log(msg, type) {
 }
 
 // USER ID
+//const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
+//let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
+//if (!USER_ID) {
+//  USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
+//  localStorage.setItem(USER_STORAGE_KEY, USER_ID);
+//}
+//log('USER: ' + USER_ID, 'info');
+
+  // USER ID (già esistente)
 const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
 let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
 if (!USER_ID) {
@@ -50,6 +61,18 @@ if (!USER_ID) {
   localStorage.setItem(USER_STORAGE_KEY, USER_ID);
 }
 log('USER: ' + USER_ID, 'info');
+
+// === NUOVO: manda userId → web-app Identity una volta all'avvio ===
+(function sendIdentityPixel() {
+  try {
+    const img = new Image();
+    img.src = IDENTITY_URL + '?userId=' + encodeURIComponent(USER_ID);
+    log('Identity pixel sent', 'info');
+  } catch (err) {
+    log('Identity pixel error: ' + err.message, 'warning');
+  }
+})();
+
 
 // TRACKING (GET request con pixel)
 function trackEvent(action, extra) {
