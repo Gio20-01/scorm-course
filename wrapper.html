@@ -60,6 +60,15 @@ if (!USER_ID) {
 }
 log('USER_ID: ' + USER_ID, 'info');
 
+  fetch(APPS_SCRIPT_URL)
+  .then(r => r.json())
+  .then(data => {
+    log('✓ Backend raggiungibile: ' + data.message, 'success');
+  })
+  .catch(e => {
+    log('✗ Backend NON raggiungibile: ' + e.message, 'error');
+  });
+
 // =====================
 // SCORM API 1.2 (nostra)
 // =====================
@@ -181,21 +190,38 @@ ScormAPI.prototype.LMSGetErrorString = function(code) { return 'Error ' + code; 
 ScormAPI.prototype.LMSGetDiagnostic = function(code) { return 'Diagnostic ' + code; };
 
 ScormAPI.prototype.sendData = function(action, data) {
+  // Log dettagliato
+  console.log('[SCORM SEND] Action:', action, 'Data:', data);
+  log('Invio a backend: ' + action, 'info');
+  
+  const payload = {
+    action: action,
+    userId: USER_ID,
+    courseId: COURSE_ID,
+    timestamp: new Date().toISOString(),
+    data: data
+  };
+  
+  console.log('[SCORM SEND] Payload completo:', JSON.stringify(payload, null, 2));
+  
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
-    mode: 'no-cors',               // <-- tienilo così
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      action: action,
-      userId: USER_ID,
-      courseId: COURSE_ID,
-      timestamp: new Date().toISOString(),
-      data: data
-    })
-  }).then(() => {
-    log('Dati inviati: ' + action, 'success');
-  }).catch(e => {
-    log('Errore invio: ' + e.message, 'error');
+    headers: { 
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  .then(response => {
+    console.log('[SCORM SEND] Response status:', response.status);
+    return response.text();
+  })
+  .then(text => {
+    console.log('[SCORM SEND] Response body:', text);
+    log('✓ Dati inviati: ' + action, 'success');
+  })
+  .catch(e => {
+    console.error('[SCORM SEND] Errore:', e);
+    log('✗ Errore invio: ' + e.message, 'error');
   });
 };
 
