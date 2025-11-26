@@ -196,22 +196,18 @@ ScormAPI.prototype.sendData = function(action, data) {
     userId: USER_ID,
     courseId: COURSE_ID,
     timestamp: new Date().toISOString(),
-    data: data
+    data: data || {}
   };
 
-  // Log locale così vedi cosa stiamo mandando
-  console.log('[SCORM BEACON] →', action, payload);
-  log('→ Beacon: ' + action, 'info');
+  // Solo logging locale, per vedere cosa sta succedendo
+  console.log('[SCORM PIXEL] →', payload);
+  log('→ Pixel ' + action, 'info');
 
-  // Usando un'immagine evitiamo completamente fetch/CORS
+  // Tracking pixel: niente fetch, niente CORS
   const img = new Image();
-  img.src =
-    APPS_SCRIPT_URL +
-    '?payload=' + encodeURIComponent(JSON.stringify(payload)) +
-    '&cb=' + Date.now(); // cache-buster
+  img.src = APPS_SCRIPT_URL + '?payload=' +
+    encodeURIComponent(JSON.stringify(payload));
 };
-
-
 
 // =====================
 // ESPONI API GLOBALE
