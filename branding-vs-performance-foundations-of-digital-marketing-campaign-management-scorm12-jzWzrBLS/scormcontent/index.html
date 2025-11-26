@@ -2,90 +2,49 @@
 <html lang="en" class="">
   <head>
     <script>
-// ============================================
-// SCORM API FIX - VERSIONE DEFINITIVA
-// ============================================
-
+// SCORM API FIX - Versione Semplificata
 (function() {
-    console.log('[SCORM FIX] Inizializzazione...');
-    
-    // 1. Cerca l'API nella gerarchia delle finestre
-    function findAPI(win) {
-        var attempts = 0;
-        var maxAttempts = 10;
-        
-        while (win && attempts < maxAttempts) {
-            try {
-                if (win.API) {
-                    console.log('[SCORM FIX] API trovata a livello ' + attempts);
-                    return win.API;
-                }
-                
-                if (win.parent && win.parent !== win) {
-                    win = win.parent;
-                } else {
-                    break;
-                }
-            } catch(e) {
-                console.error('[SCORM FIX] Errore ricerca API:', e);
-                break;
-            }
-            attempts++;
+    // Aspetta che window.API sia disponibile
+    var checkAPI = function() {
+        if (window.API) {
+            console.log('[SCORM FIX] ✓ API già disponibile!');
+            return;
         }
         
-        // Controlla anche nel top
+        // Cerca nel parent
         try {
-            if (window.top && window.top.API) {
-                console.log('[SCORM FIX] API trovata in window.top');
-                return window.top.API;
+            if (window.parent && window.parent.API) {
+                window.API = window.parent.API;
+                console.log('[SCORM FIX] ✓ API copiata dal parent');
+                return;
             }
         } catch(e) {}
         
-        return null;
-    }
-    
-    // 2. Cerca e inietta l'API
-    var api = findAPI(window);
-    
-    if (api) {
-        window.API = api;
-        window.API_1484_11 = api; // Per SCORM 2004
-        console.log('[SCORM FIX] ✓ API trovata e iniettata!');
-    } else {
-        console.warn('[SCORM FIX] ⚠ API non trovata immediatamente, attendo...');
-        
-        // Retry dopo un delay
-        setTimeout(function() {
-            api = findAPI(window);
-            if (api) {
-                window.API = api;
-                window.API_1484_11 = api;
-                console.log('[SCORM FIX] ✓ API trovata al secondo tentativo!');
-            } else {
-                console.error('[SCORM FIX] ✗ API non trovata dopo retry');
+        // Cerca nel top
+        try {
+            if (window.top && window.top.API) {
+                window.API = window.top.API;
+                console.log('[SCORM FIX] ✓ API copiata dal top');
+                return;
             }
-        }, 100);
-    }
-    
-    // 3. OVERRIDE della funzione originale findAPI se esiste
-    // Questo intercetta le chiamate del scormdriver.js
-    var originalFindAPI = window.findAPI;
-    window.findAPI = function(win) {
-        // Prima prova con la nostra versione
-        var api = findAPI(win || window);
-        if (api) {
-            return api;
-        }
+        } catch(e) {}
         
-        // Fallback alla versione originale se esiste
-        if (originalFindAPI && typeof originalFindAPI === 'function') {
-            return originalFindAPI(win);
-        }
-        
-        return null;
+        console.warn('[SCORM FIX] API non ancora disponibile');
     };
     
-    console.log('[SCORM FIX] Override di findAPI completato');
+    // Controlla immediatamente
+    checkAPI();
+    
+    // Retry dopo 100ms
+    setTimeout(checkAPI, 100);
+    
+    // Override findAPI
+    window.findAPI = function(win) {
+        if (window.API) return window.API;
+        if (window.parent && window.parent.API) return window.parent.API;
+        if (window.top && window.top.API) return window.top.API;
+        return null;
+    };
     
 })();
 </script>
