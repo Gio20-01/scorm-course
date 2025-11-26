@@ -183,11 +183,11 @@ ScormAPI.prototype.LMSGetDiagnostic = function(code) { return 'Diagnostic ' + co
 ScormAPI.prototype.sendData = function(action, data) {
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
-    mode: 'no-cors',
+    mode: 'no-cors',               // <-- tienilo così
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       action: action,
-      userId: USER_ID,       // verrà sovrascritto da Session.getActiveUser() nel backend
+      userId: USER_ID,
       courseId: COURSE_ID,
       timestamp: new Date().toISOString(),
       data: data
@@ -198,6 +198,7 @@ ScormAPI.prototype.sendData = function(action, data) {
     log('Errore invio: ' + e.message, 'error');
   });
 };
+
 
 // =====================
 // ESPONI API GLOBALE
