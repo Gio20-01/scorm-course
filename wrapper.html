@@ -197,32 +197,25 @@ ScormAPI.prototype.sendData = function(action, data) {
     timestamp: new Date().toISOString(),
     data: data
   };
-  
+
   console.log('[SCORM SEND] →', action, payload);
-  log('→ Invio: ' + action, 'info');
-  
+  log('→ Invio: ' + action + ' (no-cors)', 'info');
+
   fetch(APPS_SCRIPT_URL, {
     method: 'POST',
-    // RIMUOVI mode: 'no-cors' !!!
-    headers: { 
+    mode: 'no-cors',                        // <--- IMPORTANTE
+    headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
   })
-  .then(response => {
-    console.log('[SCORM SEND] Status:', response.status);
-    if (!response.ok) {
-      throw new Error('HTTP ' + response.status);
-    }
-    return response.text();
-  })
-  .then(text => {
-    console.log('[SCORM SEND] ✓ Response:', text);
-    log('✓ Salvato: ' + action, 'success');
+  .then(() => {
+    // Non possiamo leggere status/response per CORS, assumiamo "best effort"
+    log('✓ Richiesta inviata: ' + action, 'success');
   })
   .catch(error => {
     console.error('[SCORM SEND] ✗ Error:', error);
-    log('✗ Errore: ' + error.message, 'error');
+    log('✗ Errore invio: ' + error.message, 'error');
   });
 };
 
