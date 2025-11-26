@@ -60,14 +60,15 @@ if (!USER_ID) {
 }
 log('USER_ID: ' + USER_ID, 'info');
 
-  fetch(APPS_SCRIPT_URL)
-  .then(r => r.json())
-  .then(data => {
-    log('✓ Backend raggiungibile: ' + data.message, 'success');
-  })
-  .catch(e => {
-    log('✗ Backend NON raggiungibile: ' + e.message, 'error');
-  });
+  // --- Ping di test disattivato ---
+  //fetch(APPS_SCRIPT_URL)
+  //.then(r => r.json())
+  //.then(data => {
+  //  log('✓ Backend raggiungibile: ' + data.message, 'success');
+  // })
+  // .catch(e => {
+  //  log('✗ Backend NON raggiungibile: ' + e.message, 'error');
+  // });
 
 // =====================
 // SCORM API 1.2 (nostra)
