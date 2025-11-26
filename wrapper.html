@@ -19,7 +19,7 @@
 </head>
 <body>
     <div id="container">
-        <iframe id="scorm-frame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups"></iframe>
+        <iframe id="scorm-frame" allow="same-origin scripts forms"></iframe>
         <div id="debug"><div class="log info">🚀 Inizializzazione SCORM Proxy...</div></div>
     </div>
 
@@ -142,50 +142,44 @@ ScormAPI.prototype.sendData = function(action, data) {
     });
 };
 
-// Crea API GLOBALE prima di caricare l'iframe
+// Crea API GLOBALE IMMEDIATAMENTE
 window.API = new ScormAPI();
 window.API_1484_11 = window.API;
-
 log('API resa globale', 'success');
 
-// Carica iframe con injection script
+// Carica iframe con injection PRECOCE
 const frame = document.getElementById('scorm-frame');
 
-// Quando l'iframe si carica, inietta l'API
+// CRITICAL: Inietta l'API PRIMA che l'iframe carichi il contenuto
 frame.addEventListener('load', function() {
     log('Iframe caricato', 'success');
     
-    setTimeout(function() {
-        try {
-            // Prova multiple strategie di injection
-            if (frame.contentWindow) {
-                frame.contentWindow.API = window.API;
-                frame.contentWindow.API_1484_11 = window.API;
-                log('API iniettata in contentWindow', 'success');
-            }
-            
-            // Prova anche via postMessage
-            frame.contentWindow.postMessage({
-                type: 'SCORM_API_READY',
-                api: 'available'
-            }, '*');
-            
-        } catch(e) {
-            log('Injection fallita: ' + e.message, 'error');
-        }
-    }, 100);
+    // Injection immediata
+    injectAPI();
+    
+    // Retry multipli per sicurezza
+    setTimeout(injectAPI, 50);
+    setTimeout(injectAPI, 200);
+    setTimeout(injectAPI, 500);
 });
 
-// Listener per messaggi dall'iframe
-window.addEventListener('message', function(event) {
-    if (event.data.type === 'SCORM_API_REQUEST') {
-        log('Iframe richiede API', 'warning');
-        event.source.postMessage({
-            type: 'SCORM_API_RESPONSE',
-            available: true
-        }, '*');
+function injectAPI() {
+    try {
+        if (frame.contentWindow) {
+            frame.contentWindow.API = window.API;
+            frame.contentWindow.API_1484_11 = window.API;
+            
+            // Forza anche findAPI
+            frame.contentWindow.findAPI = function() {
+                return window.API;
+            };
+            
+            log('API iniettata/aggiornata', 'success');
+        }
+    } catch(e) {
+        log('Injection: ' + e.message, 'error');
     }
-});
+}
 
 // Carica il contenuto
 frame.src = SCORM_URL;
