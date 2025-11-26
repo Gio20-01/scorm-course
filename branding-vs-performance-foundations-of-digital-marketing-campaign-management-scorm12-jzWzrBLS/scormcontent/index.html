@@ -2,52 +2,97 @@
 <html lang="en" class="">
   <head>
     <script>
-// SCORM API FIX - Versione Semplificata
 (function() {
-    // Aspetta che window.API sia disponibile
-    var checkAPI = function() {
-        if (window.API) {
-            console.log('[SCORM FIX] ✓ API già disponibile!');
-            return;
+    // Configurazione
+    var APPS_SCRIPT_URL = 'https://script.google.com/a/macros/seedtag.com/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
+    var USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
+    var COURSE_ID = 'branding-foundations';
+    
+    // SCORM API 1.2
+    function ScormAPI() {
+        this.data = {
+            'cmi.core.student_id': USER_ID,
+            'cmi.core.student_name': 'Student',
+            'cmi.core.lesson_location': '',
+            'cmi.core.lesson_status': 'not attempted',
+            'cmi.core.score.raw': '',
+            'cmi.core.score.max': '100',
+            'cmi.core.total_time': '0000:00:00.00',
+            'cmi.core.session_time': '0000:00:00.00'
+        };
+        this.initialized = false;
+        this.errorCode = '0';
+    }
+    
+    ScormAPI.prototype.LMSInitialize = function() {
+        if (this.initialized) return 'false';
+        this.initialized = true;
+        console.log('[SCORM] Initialized');
+        this.sendData('initialize', {});
+        return 'true';
+    };
+    
+    ScormAPI.prototype.LMSFinish = function() {
+        if (!this.initialized) return 'false';
+        console.log('[SCORM] Finished');
+        this.sendData('terminate', this.data);
+        return 'true';
+    };
+    
+    ScormAPI.prototype.LMSGetValue = function(key) {
+        return this.data[key] || '';
+    };
+    
+    ScormAPI.prototype.LMSSetValue = function(key, value) {
+        this.data[key] = value;
+        var critical = ['cmi.core.lesson_status', 'cmi.core.score.raw'];
+        if (critical.indexOf(key) !== -1) {
+            console.log('[SCORM] Tracking:', key, '=', value);
+            this.sendData('setValue', { element: key, value: value });
         }
-        
-        // Cerca nel parent
-        try {
-            if (window.parent && window.parent.API) {
-                window.API = window.parent.API;
-                console.log('[SCORM FIX] ✓ API copiata dal parent');
-                return;
-            }
-        } catch(e) {}
-        
-        // Cerca nel top
-        try {
-            if (window.top && window.top.API) {
-                window.API = window.top.API;
-                console.log('[SCORM FIX] ✓ API copiata dal top');
-                return;
-            }
-        } catch(e) {}
-        
-        console.warn('[SCORM FIX] API non ancora disponibile');
+        return 'true';
     };
     
-    // Controlla immediatamente
-    checkAPI();
-    
-    // Retry dopo 100ms
-    setTimeout(checkAPI, 100);
-    
-    // Override findAPI
-    window.findAPI = function(win) {
-        if (window.API) return window.API;
-        if (window.parent && window.parent.API) return window.parent.API;
-        if (window.top && window.top.API) return window.top.API;
-        return null;
+    ScormAPI.prototype.LMSCommit = function() {
+        console.log('[SCORM] Commit');
+        this.sendData('commit', this.data);
+        return 'true';
     };
     
+    ScormAPI.prototype.LMSGetLastError = function() { return this.errorCode; };
+    ScormAPI.prototype.LMSGetErrorString = function() { return ''; };
+    ScormAPI.prototype.LMSGetDiagnostic = function() { return ''; };
+    
+    ScormAPI.prototype.sendData = function(action, data) {
+        fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: action,
+                userId: USER_ID,
+                courseId: COURSE_ID,
+                timestamp: new Date().toISOString(),
+                data: data
+            })
+        }).catch(function(e) {
+            console.error('[SCORM] Send error:', e);
+        });
+    };
+    
+    // Crea API GLOBALMENTE
+    window.API = new ScormAPI();
+    window.API_1484_11 = window.API;
+    
+    console.log('[SCORM] ✓ API embedded and ready!');
 })();
 </script>
+<!-- ============================================ -->
+<!-- FINE SCORM API EMBEDDED -->
+<!-- ============================================ -->
+
+<!-- Resto del contenuto originale -->
+<script>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="utf-8">
