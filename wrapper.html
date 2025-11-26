@@ -18,24 +18,21 @@
   </style>
 </head>
 <body>
-<div id="container">
-  <iframe id="scorm-frame" allow="same-origin scripts forms"></iframe>
-  <div id="debug"><div class="log info">🚀 Inizializzazione SCORM Proxy...</div></div>
-</div>
+  <div id="container">
+    <iframe id="scorm-frame" allow="same-origin scripts forms"></iframe>
+    <div id="debug"><div class="log info">🚀 Inizializzazione SCORM...</div></div>
+  </div>
 
 <script>
-// ===================== CONFIG =====================
-const SCORM_URL       = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
+// CONFIG
+const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-campaign-management-scorm12-jzWzrBLS/scormcontent/index.html';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
-const COURSE_ID       = 'branding-foundations';
+const COURSE_ID = 'branding-foundations';
 
-// ===================== LOGGING =====================
+// LOGGING
 function log(msg, type) {
   const debug = document.getElementById('debug');
-  if (!debug) {
-    console.log('[SCORM]', msg);
-    return;
-  }
+  if (!debug) return;
   const entry = document.createElement('div');
   entry.className = 'log ' + (type || 'info');
   const icons = { success: '✓', error: '✗', warning: '⚠', info: '→' };
@@ -45,44 +42,35 @@ function log(msg, type) {
   console.log('[SCORM]', msg);
 }
 
-// ===================== USER_ID stabile (browser) =====================
+// USER ID
 const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
 let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
 if (!USER_ID) {
   USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
   localStorage.setItem(USER_STORAGE_KEY, USER_ID);
 }
-log('USER_ID: ' + USER_ID, 'info');
+log('USER: ' + USER_ID, 'info');
 
-// ===================== PIXEL (GET su Apps Script) =====================
-function sendPixel(action, extra) {
+// TRACKING (GET request con pixel)
+function trackEvent(action, extra) {
   extra = extra || {};
-  const payload = {
-    action:   action,
-    userId:   USER_ID,
+  const params = new URLSearchParams({
+    action: action,
+    userId: USER_ID,
     courseId: COURSE_ID,
     timestamp: new Date().toISOString(),
-    lesson:   extra.lesson || '',
-    status:   extra.status || '',
-    score:    extra.score != null ? String(extra.score) : ''
-  };
-
-  log('[SCORM PIXEL] → ' + JSON.stringify(payload), 'info');
-
-  const params = new URLSearchParams(payload);
+    lesson: extra.lesson || '',
+    status: extra.status || '',
+    score: extra.score != null ? String(extra.score) : ''
+  });
   const img = new Image();
   img.src = APPS_SCRIPT_URL + '?' + params.toString();
+  log('Track: ' + action, 'info');
 }
 
-// alias comodo
-function trackEvent(action, extra) {
-  sendPixel(action, extra);
-}
-
-// ===================== SCORM API 1.2 (nostra) =====================
+// SCORM API 1.2
 function ScormAPI() {
   this.storageKey = 'scorm_state_' + COURSE_ID + '_' + USER_ID;
-
   const defaultData = {
     'cmi.core.student_id': USER_ID,
     'cmi.core.student_name': 'Student',
@@ -93,278 +81,197 @@ function ScormAPI() {
     'cmi.core.score.min': '0',
     'cmi.core.total_time': '0000:00:00.00',
     'cmi.core.session_time': '0000:00:00.00',
-    'cmi.suspend_data': '',
-    'cmi.core.lesson_mode': 'normal',
-    'cmi.core.exit': '',
-    'cmi.core.entry': 'ab-initio'
+    'cmi.suspend_data': ''
   };
-
   let saved = null;
   try {
     const raw = localStorage.getItem(this.storageKey);
-    if (raw) {
-      saved = JSON.parse(raw);
-      log('Stato SCORM recuperato da localStorage', 'success');
-    }
-  } catch (e) {
-    log('Errore lettura stato salvato: ' + e.message, 'warning');
-  }
-
+    if (raw) saved = JSON.parse(raw);
+  } catch (e) {}
   this.data = saved ? Object.assign({}, defaultData, saved) : defaultData;
-
   this.initialized = false;
   this.terminated = false;
   this.errorCode = '0';
   this.startTime = null;
-  log('API creata', 'success');
 }
 
 ScormAPI.prototype.saveState = function() {
   try {
     localStorage.setItem(this.storageKey, JSON.stringify(this.data));
-    log('Stato SCORM salvato in localStorage', 'info');
-  } catch (e) {
-    log('Errore salvataggio stato: ' + e.message, 'warning');
-  }
+  } catch (e) {}
 };
 
-ScormAPI.prototype.LMSInitialize = function(param) {
-  log('→ LMSInitialize chiamato', 'info');
-  if (this.initialized) {
-    log('Già inizializzato!', 'warning');
-    return 'false';
-  }
+ScormAPI.prototype.LMSInitialize = function() {
+  if (this.initialized) return 'false';
   this.initialized = true;
   this.startTime = new Date();
-  log('✓ Sessione iniziata', 'success');
-
-  // logghiamo l'avvio corso
+  log('Initialize', 'success');
   trackEvent('initialize');
   return 'true';
 };
 
-ScormAPI.prototype.LMSFinish = function(param) {
-  log('→ LMSFinish chiamato', 'info');
+ScormAPI.prototype.LMSFinish = function() {
   if (!this.initialized || this.terminated) return 'false';
   this.terminated = true;
   this.saveState();
-  log('✓ Sessione terminata', 'success');
+  log('Finish', 'success');
   return 'true';
 };
 
 ScormAPI.prototype.LMSGetValue = function(key) {
-  if (!this.initialized) {
-    log('GetValue fallito: non inizializzato', 'error');
-    return '';
-  }
-  const val = this.data[key] || '';
-  log('GetValue: ' + key + ' = "' + val + '"', 'info');
-  return val;
+  if (!this.initialized) return '';
+  return this.data[key] || '';
 };
 
 ScormAPI.prototype.LMSSetValue = function(key, value) {
-  if (!this.initialized) {
-    log('SetValue fallito: non inizializzato', 'error');
-    return 'false';
-  }
+  if (!this.initialized) return 'false';
   this.data[key] = value;
   this.saveState();
-
-  const critical = [
-    'cmi.core.lesson_status',
-    'cmi.core.score.raw',
-    'cmi.core.lesson_location',
-    'cmi.suspend_data'
-  ];
-
-  if (critical.includes(key)) {
-    log('SetValue: ' + key + ' = "' + value + '" [TRACKED]', 'success');
-  } else {
-    log('SetValue: ' + key + ' = "' + value + '"', 'info');
-  }
   return 'true';
 };
 
-ScormAPI.prototype.LMSCommit = function(param) {
+ScormAPI.prototype.LMSCommit = function() {
   if (!this.initialized) return 'false';
-  log('✓ LMSCommit', 'success');
   this.saveState();
   return 'true';
 };
 
-ScormAPI.prototype.LMSGetLastError    = function() { return this.errorCode; };
-ScormAPI.prototype.LMSGetErrorString  = function(code) { return 'Error ' + code; };
-ScormAPI.prototype.LMSGetDiagnostic   = function(code) { return 'Diagnostic ' + code; };
+ScormAPI.prototype.LMSGetLastError = function() { return this.errorCode; };
+ScormAPI.prototype.LMSGetErrorString = function() { return ''; };
+ScormAPI.prototype.LMSGetDiagnostic = function() { return ''; };
 
-// ===================== ESPONI API GLOBALE =====================
+// ESPONI API
 window.API = new ScormAPI();
 window.API_1484_11 = window.API;
-log('API resa globale', 'success');
+log('API ready', 'success');
 
-// ===================== ADAPTER PER LMSProxy DI RISE =====================
+// ADAPTER RISE
 const CHUNK_KEY = 'rise_chunk_' + COURSE_ID + '_' + USER_ID;
 let lastChunk = localStorage.getItem(CHUNK_KEY) || '';
 
 function GetDataChunk() {
-  const v = window.API && window.API.initialized
-    ? window.API.LMSGetValue('cmi.suspend_data')
+  return window.API && window.API.initialized 
+    ? window.API.LMSGetValue('cmi.suspend_data') 
     : lastChunk;
-  log('GetDataChunk → ' + (v ? 'valore presente' : 'vuoto'), 'info');
-  return v || '';
 }
 
 function SetDataChunk(chunk) {
   lastChunk = chunk || '';
   localStorage.setItem(CHUNK_KEY, lastChunk);
-  log('SetDataChunk (len=' + lastChunk.length + ')', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.suspend_data', lastChunk);
   }
 }
 
 function SetScore(score, max, min) {
-  log('SetScore → ' + score + '/' + max, 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.score.raw', score);
   }
-  sendPixel('score', { score: score });
+  trackEvent('score', { score: score });
 }
 
 function SetReachedEnd() {
-  log('SetReachedEnd', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'completed');
   }
-  sendPixel('completed', { status: 'completed' });
+  trackEvent('completed', { status: 'completed' });
 }
 
 function SetPassed() {
-  log('SetPassed', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'passed');
   }
-  sendPixel('passed', { status: 'passed' });
+  trackEvent('passed', { status: 'passed' });
 }
 
 function SetFailed() {
-  log('SetFailed', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'failed');
   }
-  sendPixel('failed', { status: 'failed' });
-}
-
-function ResetStatus() {
-  log('ResetStatus', 'info');
-  if (window.API && window.API.initialized) {
-    window.API.LMSSetValue('cmi.core.lesson_status', 'not attempted');
-  }
+  trackEvent('failed', { status: 'failed' });
 }
 
 function GetStatus() {
-  const s = window.API && window.API.initialized
+  return window.API && window.API.initialized
     ? window.API.LMSGetValue('cmi.core.lesson_status')
     : 'not attempted';
-  log('GetStatus → ' + s, 'info');
-  return s;
 }
 
 function SetBookmark(url, title) {
-  log('SetBookmark → ' + url, 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_location', url || '');
   }
-  sendPixel('bookmark', { lesson: url || '' });
+  trackEvent('bookmark', { lesson: url || '' });
 }
 
 function CommitData() {
-  log('CommitData chiamato dal corso', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSCommit('');
   }
 }
 
 function Finish() {
-  log('Finish chiamato dal corso', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSFinish('');
   }
 }
 
-function ConcedeControl() {
-  log('ConcedeControl (export mode, nessuna azione)', 'info');
-}
-
-function GetStudentID() {
-  log('GetStudentID → ' + USER_ID, 'info');
-  return USER_ID;
-}
-
-function SetLanguagePreference(locale) {
-  log('SetLanguagePreference → ' + locale, 'info');
-}
-
-function WriteToDebug(msg) {
-  log('LMSProxy debug: ' + msg, 'info');
-}
-
+function GetStudentID() { return USER_ID; }
+function ResetStatus() {}
+function ConcedeControl() {}
+function SetLanguagePreference() {}
+function WriteToDebug() {}
 function CreateResponseIdentifier() { return {}; }
 function MatchingResponse() { return function() {}; }
-function RecordMultipleChoiceInteraction() { log('RecordMultipleChoiceInteraction', 'info'); }
-function RecordMatchingInteraction()      { log('RecordMatchingInteraction', 'info'); }
-function RecordFillInInteraction()        { log('RecordFillInInteraction', 'info'); }
+function RecordMultipleChoiceInteraction() {}
+function RecordMatchingInteraction() {}
+function RecordFillInInteraction() {}
 
-// Esponi per LMSProxy
-window.GetDataChunk                     = GetDataChunk;
-window.SetDataChunk                     = SetDataChunk;
-window.SetScore                         = SetScore;
-window.SetReachedEnd                    = SetReachedEnd;
-window.SetPassed                        = SetPassed;
-window.SetFailed                        = SetFailed;
-window.ResetStatus                      = ResetStatus;
-window.GetStatus                        = GetStatus;
-window.SetBookmark                      = SetBookmark;
-window.CommitData                       = CommitData;
-window.Finish                           = Finish;
-window.ConcedeControl                   = ConcedeControl;
-window.GetStudentID                     = GetStudentID;
-window.SetLanguagePreference            = SetLanguagePreference;
-window.WriteToDebug                     = WriteToDebug;
-window.CreateResponseIdentifier         = CreateResponseIdentifier;
-window.MatchingResponse                 = MatchingResponse;
-window.RecordMultipleChoiceInteraction  = RecordMultipleChoiceInteraction;
-window.RecordMatchingInteraction        = RecordMatchingInteraction;
-window.RecordFillInInteraction          = RecordFillInInteraction;
+// Esponi
+window.GetDataChunk = GetDataChunk;
+window.SetDataChunk = SetDataChunk;
+window.SetScore = SetScore;
+window.SetReachedEnd = SetReachedEnd;
+window.SetPassed = SetPassed;
+window.SetFailed = SetFailed;
+window.GetStatus = GetStatus;
+window.SetBookmark = SetBookmark;
+window.CommitData = CommitData;
+window.Finish = Finish;
+window.GetStudentID = GetStudentID;
+window.ResetStatus = ResetStatus;
+window.ConcedeControl = ConcedeControl;
+window.SetLanguagePreference = SetLanguagePreference;
+window.WriteToDebug = WriteToDebug;
+window.CreateResponseIdentifier = CreateResponseIdentifier;
+window.MatchingResponse = MatchingResponse;
+window.RecordMultipleChoiceInteraction = RecordMultipleChoiceInteraction;
+window.RecordMatchingInteraction = RecordMatchingInteraction;
+window.RecordFillInInteraction = RecordFillInInteraction;
 
-// ===================== IFRAME + INJECTION API =====================
+// IFRAME
 const frame = document.getElementById('scorm-frame');
 
 function injectAPI() {
   try {
     if (frame.contentWindow) {
-      frame.contentWindow.API         = window.API;
+      frame.contentWindow.API = window.API;
       frame.contentWindow.API_1484_11 = window.API;
-      frame.contentWindow.findAPI     = function() { return window.API; };
-      log('API iniettata nell\'iframe', 'success');
+      frame.contentWindow.findAPI = function() { return window.API; };
     }
-  } catch (e) {
-    log('Injection error: ' + e.message, 'error');
-  }
+  } catch (e) {}
 }
 
 frame.addEventListener('load', function() {
-  log('Iframe caricato', 'success');
+  log('Iframe loaded', 'success');
   injectAPI();
   setTimeout(injectAPI, 50);
   setTimeout(injectAPI, 200);
-  setTimeout(injectAPI, 500);
 });
 
-// Carica il corso
 frame.src = SCORM_URL;
-log('Caricamento SCORM da: ' + SCORM_URL, 'info');
+log('Loading course...', 'info');
 
-// Cleanup alla chiusura pagina
 window.addEventListener('beforeunload', function() {
   if (window.API && window.API.initialized && !window.API.terminated) {
     window.API.LMSFinish('');
