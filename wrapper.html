@@ -31,25 +31,35 @@ const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-ca
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
 const COURSE_ID = 'branding-foundations';
 
-  // === Helper per mandare eventi al backend ===
-function trackEvent(action, extra) {
-  const payload = Object.assign({}, extra || {}, {
+// USER_ID stabile sul browser
+const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
+let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
+if (!USER_ID) {
+  USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem(USER_STORAGE_KEY, USER_ID);
+}
+log('USER_ID: ' + USER_ID, 'info');
+
+  function sendPixel(action, extra) {
+  extra = extra || {};
+  const payload = {
     action: action,
     userId: USER_ID,
     courseId: COURSE_ID,
-    timestamp: new Date().toISOString()
-  });
+    timestamp: new Date().toISOString(),
+    lesson: extra.lesson || '',
+    status: extra.status || '',
+    score: extra.score != null ? String(extra.score) : ''
+  };
 
-  console.log('[TRACK] →', action, payload);
+  // Log per debug (quello che già stai vedendo)
+  log('[SCORM PIXEL] → ' + JSON.stringify(payload), 'info');
 
-  fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',                         // niente CORS drama
-    headers: { 'Content-Type': 'text/plain' }, // simple request
-    body: JSON.stringify(payload)
-  }).catch(err => {
-    console.warn('[TRACK] errore invio:', err);
-  });
+  // Costruisco la query ?a=...&b=...
+  const params = new URLSearchParams(payload);
+  const img = new Image();
+  img.src = APPS_SCRIPT_URL + '?' + params.toString();
+  // Non serve altro: l'immagine parte in background e Apps Script registra la riga
 }
 
 // =====================
@@ -70,16 +80,6 @@ function log(msg, type) {
   console.log('[SCORM]', msg);
 }
 
-// =====================
-// USER ID stabile (browser)
-// =====================
-const USER_STORAGE_KEY = 'scorm_user_id_' + COURSE_ID;
-let USER_ID = localStorage.getItem(USER_STORAGE_KEY);
-if (!USER_ID) {
-  USER_ID = 'user_' + Math.random().toString(36).substr(2, 9);
-  localStorage.setItem(USER_STORAGE_KEY, USER_ID);
-}
-log('USER_ID: ' + USER_ID, 'info');
 
   // --- Ping di test disattivato ---
   //fetch(APPS_SCRIPT_URL)
@@ -275,6 +275,7 @@ function SetScore(score, max, min) {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.score.raw', score);
   }
+  sendPixel('score', { score: score });
 }
 
 function SetReachedEnd() {
@@ -318,17 +319,20 @@ function SetBookmark(url, title) {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_location', url || '');
   }
-  // tracking: spostamento di lezione
-  trackEvent('bookmark', { lesson: url || '' });
+
+  // 👇 aggiungi questo
+  sendPixel('bookmark', {
+    lesson: url || ''
+  });
 }
+
 
 function SetReachedEnd() {
   log('SetReachedEnd', 'info');
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'completed');
   }
-  // tracking: corso completato
-  trackEvent('completed', { status: 'completed' });
+  sendPixel('completed', { status: 'completed' });
 }
 
 function SetPassed() {
@@ -336,9 +340,7 @@ function SetPassed() {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'passed');
   }
-  // tracking: corso passato
-  const score = window.API ? window.API.LMSGetValue('cmi.core.score.raw') : '';
-  trackEvent('status', { status: 'passed', score: score });
+  sendPixel('passed', { status: 'passed' });
 }
 
 function SetFailed() {
@@ -346,10 +348,9 @@ function SetFailed() {
   if (window.API && window.API.initialized) {
     window.API.LMSSetValue('cmi.core.lesson_status', 'failed');
   }
-  // tracking: corso fallito
-  const score = window.API ? window.API.LMSGetValue('cmi.core.score.raw') : '';
-  trackEvent('status', { status: 'failed', score: score });
+  sendPixel('failed', { status: 'failed' });
 }
+
 
 
 function CommitData() {
