@@ -233,11 +233,16 @@ ScormAPI.prototype.sendData = function(action, data) {
 };
 
 // =====================
+
 // ESPONI API GLOBALE
-// =====================
 window.API = new ScormAPI();
 window.API_1484_11 = window.API;
 log('API resa globale', 'success');
+
+// 🔴 AGGIUNGI QUESTO:
+window.API.LMSInitialize('');
+log('LMSInitialize chiamato dal wrapper', 'info');
+
 
 // =====================
 // ADAPTER PER LMSProxy DI RISE
