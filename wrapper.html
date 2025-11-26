@@ -31,6 +31,27 @@ const SCORM_URL = './branding-vs-performance-foundations-of-digital-marketing-ca
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTMMtmgf5soGkL48U5rR08X7MlchsTAOAEmzdhmWaYICAM6x6AxzhBj5rhPWEioopDCQ/exec';
 const COURSE_ID = 'branding-foundations';
 
+  // === Helper per mandare eventi al backend ===
+function trackEvent(action, extra) {
+  const payload = Object.assign({}, extra || {}, {
+    action: action,
+    userId: USER_ID,
+    courseId: COURSE_ID,
+    timestamp: new Date().toISOString()
+  });
+
+  console.log('[TRACK] →', action, payload);
+
+  fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',                         // niente CORS drama
+    headers: { 'Content-Type': 'text/plain' }, // simple request
+    body: JSON.stringify(payload)
+  }).catch(err => {
+    console.warn('[TRACK] errore invio:', err);
+  });
+}
+
 // =====================
 // LOGGING
 // =====================
